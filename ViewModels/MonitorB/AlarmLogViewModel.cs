@@ -17,12 +17,17 @@ namespace ViewModels.MonitorB
 
         private void Awake()
         {
+            Debug.Log("[AlarmLogViewModel] Awake 시작");
+
             if (Instance != null && Instance != this)
             {
+                Debug.Log("[AlarmLogViewModel] 중복 인스턴스 제거");
                 Destroy(this);
                 return;
             }
+
             Instance = this;
+            Debug.Log("[AlarmLogViewModel] Instance 설정 완료");
         }
 
         private void OnDestroy()
@@ -52,13 +57,12 @@ namespace ViewModels.MonitorB
                     {
                         logId = m.ALAIDX,
                         obsId = m.OBSIDX,
-                        areaId = m.AREAIDX,
                         sensorId = m.HNSIDX,
                         boardId = m.BOARDIDX,
                         status = m.ALACODE,
                         time = m.ALADT,
                         cancelTime = m.TURNOFF_DT,
-                        isCancelled = m.TURNOFF_FLAG == 1,
+                        isCancelled = !string.IsNullOrEmpty(m.TURNOFF_FLAG) && m.TURNOFF_FLAG.Trim() == "Y",
                         areaName = m.AREANM ?? "알 수 없음",
                         obsName = m.OBSNM ?? "알 수 없음",
                         sensorName = m.HNSNM ?? "알 수 없음",

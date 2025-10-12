@@ -7,7 +7,6 @@ namespace Models
     {
         public int logId;
         public int obsId;
-        public int areaId;
         public int sensorId;
         public int boardId;
         public int status;
@@ -23,7 +22,6 @@ namespace Models
         {
             logId = 0;
             obsId = 0;
-            areaId = 0;
             sensorId = 0;
             boardId = 0;
             status = 0;
@@ -42,13 +40,12 @@ namespace Models
             {
                 logId = model.ALAIDX,
                 obsId = model.OBSIDX,
-                areaId = model.AREAIDX,
                 sensorId = model.HNSIDX,
                 boardId = model.BOARDIDX,
                 status = model.ALACODE,
                 time = model.ALADT,
                 cancelTime = model.TURNOFF_DT,
-                isCancelled = model.TURNOFF_FLAG == 1,
+                isCancelled = !string.IsNullOrEmpty(model.TURNOFF_FLAG) && model.TURNOFF_FLAG.Trim() == "Y",
                 areaName = model.AREANM ?? "",
                 obsName = model.OBSNM ?? "",
                 sensorName = model.HNSNM ?? "",

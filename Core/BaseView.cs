@@ -22,10 +22,22 @@ namespace Core
         /// </summary>
         protected virtual void OnEnable()
         {
-            if (!_isViewInitialized)
+            if (AppInitializer.IsInitialized)
             {
-                InitializeView();
+                if (!_isViewInitialized)
+                    InitializeView();
             }
+            else
+            {
+                AppInitializer.OnInitializationComplete += OnAppInitialized;
+            }
+        }
+
+        private void OnAppInitialized()
+        {
+            AppInitializer.OnInitializationComplete -= OnAppInitialized;
+            if (!_isViewInitialized)
+                InitializeView();
         }
 
         /// <summary>
@@ -33,10 +45,10 @@ namespace Core
         /// </summary>
         protected virtual void OnDisable()
         {
+            AppInitializer.OnInitializationComplete -= OnAppInitialized;
+
             if (_isViewInitialized)
-            {
                 CleanupView();
-            }
         }
 
         #endregion

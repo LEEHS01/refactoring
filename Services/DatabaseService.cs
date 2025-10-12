@@ -37,7 +37,7 @@ namespace Services
         #endregion
 
         [Header("Database Configuration")]
-        [SerializeField] private string _apiUrl = "http://192.168.1.20:1933";
+        [SerializeField] private string _apiUrl = "http://192.168.1.20:2000/";
         [SerializeField] private int _timeout = 30;
         [SerializeField] private bool _logQueries = true;
 
@@ -61,9 +61,20 @@ namespace Services
                 Destroy(gameObject);
                 return;
             }
-
             _instance = this;
             DontDestroyOnLoad(gameObject);
+
+            // PlayerPrefs에서 URL 읽기 (원본과 동일)
+            string storedUrl = PlayerPrefs.GetString("dbAddress");
+            if (!string.IsNullOrEmpty(storedUrl))
+            {
+                _apiUrl = storedUrl;
+                Debug.Log($"[DatabaseService] PlayerPrefs에서 URL 로드: {_apiUrl}");
+            }
+            else
+            {
+                Debug.LogWarning($"[DatabaseService] PlayerPrefs에 URL 없음, 기본값 사용: {_apiUrl}");
+            }
 
             Initialize();
         }

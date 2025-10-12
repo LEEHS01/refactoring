@@ -126,20 +126,21 @@ public class AlarmLogView : BaseView
             return;
         }
 
+        Debug.Log($"[FindSortButtons] Container: {container.name}, Children: {container.transform.childCount}");
+
         var upTransform = container.transform.Find("Image_UP");
         var downTransform = container.transform.Find("Image_Down");
 
+        Debug.Log($"[FindSortButtons] {container.name} - Found UP: {upTransform != null}, Found DOWN: {downTransform != null}");
+
         if (upTransform != null)
             upButton = upTransform.GetComponent<Button>();
-        else
-            LogWarning($"Image_UP not found in {container.name}");
 
         if (downTransform != null)
             downButton = downTransform.GetComponent<Button>();
-        else
-            LogWarning($"Image_Down not found in {container.name}");
-    }
 
+        Debug.Log($"[FindSortButtons] {container.name} - UP Button: {upButton != null}, DOWN Button: {downButton != null}");
+    }
     private void RemoveSortButtonListeners()
     {
         if (btnTimeUp) btnTimeUp.onClick.RemoveAllListeners();
