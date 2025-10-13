@@ -1,4 +1,4 @@
-using Models;
+ï»¿using Models;
 using Services;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,19 +15,23 @@ namespace ViewModels.MonitorB
 
         public event System.Action OnLogsChanged;
 
+        // â­ í•„í„° ìƒíƒœ ì €ì¥
+        private string currentAreaFilter = null;
+        private int? currentStatusFilter = null;
+
         private void Awake()
         {
-            Debug.Log("[AlarmLogViewModel] Awake ½ÃÀÛ");
+            Debug.Log("[AlarmLogViewModel] Awake ì‹œì‘");
 
             if (Instance != null && Instance != this)
             {
-                Debug.Log("[AlarmLogViewModel] Áßº¹ ÀÎ½ºÅÏ½º Á¦°Å");
+                Debug.Log("[AlarmLogViewModel] ì¤‘ë³µ ì¸ìŠ¤í„´ìŠ¤ ì œê±°");
                 Destroy(this);
                 return;
             }
 
             Instance = this;
-            Debug.Log("[AlarmLogViewModel] Instance ¼³Á¤ ¿Ï·á");
+            Debug.Log("[AlarmLogViewModel] Instance ì„¤ì • ì™„ë£Œ");
         }
 
         private void OnDestroy()
@@ -46,7 +50,7 @@ namespace ViewModels.MonitorB
                 {
                     if (models == null)
                     {
-                        Debug.LogWarning("[AlarmLogViewModel] ¹ŞÀº µ¥ÀÌÅÍ°¡ nullÀÔ´Ï´Ù.");
+                        Debug.LogWarning("[AlarmLogViewModel] ë°›ì€ ë°ì´í„°ê°€ nullì…ë‹ˆë‹¤.");
                         AllLogs = new List<AlarmLogData>();
                         FilteredLogs = new List<AlarmLogData>();
                         OnLogsChanged?.Invoke();
@@ -63,25 +67,86 @@ namespace ViewModels.MonitorB
                         time = m.ALADT,
                         cancelTime = m.TURNOFF_DT,
                         isCancelled = !string.IsNullOrEmpty(m.TURNOFF_FLAG) && m.TURNOFF_FLAG.Trim() == "Y",
-                        areaName = m.AREANM ?? "¾Ë ¼ö ¾øÀ½",
-                        obsName = m.OBSNM ?? "¾Ë ¼ö ¾øÀ½",
-                        sensorName = m.HNSNM ?? "¾Ë ¼ö ¾øÀ½",
+                        areaName = m.AREANM ?? "",      
+                        obsName = m.OBSNM ?? "",        
+                        sensorName = m.HNSNM ?? "",     
                         alarmValue = m.CURRVAL
                     }).ToList();
 
-                    FilteredLogs = new List<AlarmLogData>(AllLogs);
-                    Debug.Log($"[AlarmLogViewModel] µ¥ÀÌÅÍ ·Îµå ¿Ï·á: {AllLogs.Count}°³");
-                    OnLogsChanged?.Invoke();
+                    // â­ í•„í„° ì¬ì ìš©
+                    ApplyFilters();
+
+                    Debug.Log($"[AlarmLogViewModel] ë°ì´í„° ë¡œë“œ ì™„ë£Œ: {AllLogs.Count}ê°œ");
                 },
                 (error) =>
                 {
-                    Debug.LogError($"[AlarmLogViewModel] µ¥ÀÌÅÍ ·Îµå ½ÇÆĞ: {error}");
+                    Debug.LogError($"[AlarmLogViewModel] ë°ì´í„° ë¡œë“œ ì‹¤íŒ¨: {error}");
                     AllLogs = new List<AlarmLogData>();
                     FilteredLogs = new List<AlarmLogData>();
                     OnLogsChanged?.Invoke();
                 }
             );
         }
+
+        #region Filtering
+
+        /// <summary>
+        /// ì§€ì—­ë³„ í•„í„°ë§
+        /// </summary>
+        /// <param name="areaName">ì§€ì—­ëª… (nullì´ë©´ í•„í„° í•´ì œ)</param>
+        public void FilterByArea(string areaName)
+        {
+            currentAreaFilter = areaName;
+            ApplyFilters();
+        }
+
+        /// <summary>
+        /// ìƒíƒœë³„ í•„í„°ë§
+        /// </summary>
+        /// <param name="status">ìƒíƒœ ì½”ë“œ (nullì´ë©´ í•„í„° í•´ì œ, 0:ì„¤ë¹„ì´ìƒ, 1:ê²½ê³„, 2:ê²½ë³´)</param>
+        public void FilterByStatus(int? status)
+        {
+            currentStatusFilter = status;
+            ApplyFilters();
+        }
+
+        /// <summary>
+        /// í˜„ì¬ í•„í„° ì¡°ê±´ì— ë§ê²Œ FilteredLogs ì—…ë°ì´íŠ¸
+        /// </summary>
+        private void ApplyFilters()
+        {
+            if (AllLogs == null || AllLogs.Count == 0)
+            {
+                FilteredLogs = new List<AlarmLogData>();
+                OnLogsChanged?.Invoke();
+                return;
+            }
+
+            // ì „ì²´ ë°ì´í„°ì—ì„œ ì‹œì‘
+            IEnumerable<AlarmLogData> filtered = AllLogs;
+
+            // ì§€ì—­ í•„í„° ì ìš©
+            if (!string.IsNullOrEmpty(currentAreaFilter))
+            {
+                filtered = filtered.Where(log => log.areaName == currentAreaFilter);
+            }
+
+            // ìƒíƒœ í•„í„° ì ìš©
+            if (currentStatusFilter.HasValue)
+            {
+                filtered = filtered.Where(log => log.status == currentStatusFilter.Value);
+            }
+
+            FilteredLogs = filtered.ToList();
+
+            Debug.Log($"[AlarmLogViewModel] í•„í„° ì ìš© ì™„ë£Œ - ì§€ì—­: {currentAreaFilter ?? "ì „ì²´"}, ìƒíƒœ: {currentStatusFilter?.ToString() ?? "ì „ì²´"}, ê²°ê³¼: {FilteredLogs.Count}ê°œ");
+
+            OnLogsChanged?.Invoke();
+        }
+
+        #endregion
+
+        #region Sorting
 
         public void SortByTime(bool ascending)
         {
@@ -117,5 +182,7 @@ namespace ViewModels.MonitorB
             FilteredLogs = ascending ? FilteredLogs.OrderBy(x => x.status).ToList() : FilteredLogs.OrderByDescending(x => x.status).ToList();
             OnLogsChanged?.Invoke();
         }
+
+        #endregion
     }
 }

@@ -1,5 +1,6 @@
-using Core;
+﻿using Core;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -7,6 +8,10 @@ using ViewModels.MonitorB;
 
 public class AlarmLogView : BaseView
 {
+    [Header("Filter UI")]
+    [SerializeField] private TMP_Dropdown dropdownMap;      // 지역 필터
+    [SerializeField] private TMP_Dropdown dropdownStatus;   // 상태 필터
+
     [Header("Sort UI - Containers")]
     [SerializeField] private GameObject sortTimeContainer;
     [SerializeField] private GameObject sortContentContainer;
@@ -38,7 +43,7 @@ public class AlarmLogView : BaseView
     private int currentPage = 1;
 
     private Button btnTimeUp, btnTimeDown;
-    private Button btnContentUp, btnContentDown;  
+    private Button btnContentUp, btnContentDown;
     private Button btnAreaUp, btnAreaDown;
     private Button btnObsUp, btnObsDown;
     private Button btnStatusUp, btnStatusDown;
@@ -46,7 +51,7 @@ public class AlarmLogView : BaseView
     private int TotalCount => AlarmLogViewModel.Instance?.FilteredLogs?.Count ?? 0;
     private int TotalPages => Mathf.Max(1, Mathf.CeilToInt(TotalCount / (float)pageSize));
 
-    #region BaseView �߻� �޼��� ����
+    #region BaseView 추상 메서드 구현
 
     protected override void InitializeUIComponents()
     {
@@ -63,13 +68,14 @@ public class AlarmLogView : BaseView
     {
         InitializeSortButtons();
         InitializePaginationButtons();
+        InitializeFilterDropdowns();  // ⭐ 드롭다운 초기화 추가
     }
 
     protected override void ConnectToViewModel()
     {
         if (AlarmLogViewModel.Instance == null)
         {
-            LogError("AlarmLogViewModel.Instance�� null�Դϴ�!");
+            LogError("AlarmLogViewModel.Instance가 null입니다!");
             return;
         }
 
@@ -89,6 +95,141 @@ public class AlarmLogView : BaseView
     {
         RemoveSortButtonListeners();
         RemovePaginationButtonListeners();
+        RemoveFilterDropdownListeners();  // ⭐ 드롭다운 리스너 제거 추가
+    }
+
+    #endregion
+
+    #region Filtering
+
+    private void InitializeFilterDropdowns()
+    {
+        if (dropdownMap != null)
+        {
+            dropdownMap.onValueChanged.AddListener(OnAreaFilterChanged);
+        }
+
+        if (dropdownStatus != null)
+        {
+            dropdownStatus.onValueChanged.AddListener(OnStatusFilterChanged);
+        }
+    }
+
+    private void RemoveFilterDropdownListeners()
+    {
+        if (dropdownMap != null)
+        {
+            dropdownMap.onValueChanged.RemoveAllListeners();
+        }
+
+        if (dropdownStatus != null)
+        {
+            dropdownStatus.onValueChanged.RemoveAllListeners();
+        }
+    }
+
+    private void OnAreaFilterChanged(int index)
+    {
+        Debug.Log($"🔵 [AlarmLogView] OnAreaFilterChanged 호출! index={index}");  // ⭐
+
+        if (AlarmLogViewModel.Instance == null) return;
+
+        if (index == 0)
+        {
+            Debug.Log("🔵 [AlarmLogView] 전체 선택 - null 전달");  // ⭐
+            AlarmLogViewModel.Instance.FilterByArea(null);
+        }
+        else
+        {
+            string selectedArea = dropdownMap.options[index].text;
+            Debug.Log($"🔵 [AlarmLogView] 지역 선택 - {selectedArea} 전달");  // ⭐
+            AlarmLogViewModel.Instance.FilterByArea(selectedArea);
+        }
+
+        currentPage = 1;
+        RenderPage();
+    }
+
+    private void OnStatusFilterChanged(int index)
+    {
+        Debug.Log($"🟢 [AlarmLogView] OnStatusFilterChanged 호출! index={index}");  // ⭐
+
+        if (AlarmLogViewModel.Instance == null) return;
+
+        if (index == 0)
+        {
+            Debug.Log("🟢 [AlarmLogView] 전체 선택 - null 전달");  // ⭐
+            AlarmLogViewModel.Instance.FilterByStatus(null);
+        }
+        else
+        {
+            int status = index - 1;
+            Debug.Log($"🟢 [AlarmLogView] 상태 선택 - status={status} 전달");  // ⭐
+            AlarmLogViewModel.Instance.FilterByStatus(status);
+        }
+
+        currentPage = 1;
+        RenderPage();
+    }
+
+    private void PopulateDropdownOptions()
+    {
+        if (AlarmLogViewModel.Instance == null || AlarmLogViewModel.Instance.AllLogs == null)
+            return;
+
+        // 지역 드롭다운 옵션 채우기
+        if (dropdownMap != null)
+        {
+            // ⭐ 현재 선택된 값 저장
+            int currentValue = dropdownMap.value;
+
+            // ⭐ 리스너 임시 제거
+            dropdownMap.onValueChanged.RemoveListener(OnAreaFilterChanged);
+
+            dropdownMap.ClearOptions();
+
+            var areaNames = AlarmLogViewModel.Instance.AllLogs
+                .Select(log => log.areaName)
+                .Distinct()
+                .OrderBy(name => name)
+                .ToList();
+
+            areaNames.Insert(0, "전체");
+            dropdownMap.AddOptions(areaNames);
+
+            // ⭐ 값 복원 (범위 체크)
+            dropdownMap.value = Mathf.Clamp(currentValue, 0, areaNames.Count - 1);
+
+            // ⭐ 리스너 다시 추가
+            dropdownMap.onValueChanged.AddListener(OnAreaFilterChanged);
+
+            // ⭐ 수동으로 Refresh
+            dropdownMap.RefreshShownValue();
+        }
+
+        // 상태 드롭다운 옵션 채우기
+        if (dropdownStatus != null)
+        {
+            // ⭐ 현재 선택된 값 저장
+            int currentValue = dropdownStatus.value;
+
+            // ⭐ 리스너 임시 제거
+            dropdownStatus.onValueChanged.RemoveListener(OnStatusFilterChanged);
+
+            dropdownStatus.ClearOptions();
+
+            var statusOptions = new List<string> { "전체", "설비이상", "경계", "경보" };
+            dropdownStatus.AddOptions(statusOptions);
+
+            // ⭐ 값 복원 (범위 체크)
+            dropdownStatus.value = Mathf.Clamp(currentValue, 0, statusOptions.Count - 1);
+
+            // ⭐ 리스너 다시 추가
+            dropdownStatus.onValueChanged.AddListener(OnStatusFilterChanged);
+
+            // ⭐ 수동으로 Refresh
+            dropdownStatus.RefreshShownValue();
+        }
     }
 
     #endregion
@@ -103,16 +244,20 @@ public class AlarmLogView : BaseView
         FindSortButtons(sortObsContainer, out btnObsUp, out btnObsDown);
         FindSortButtons(sortStatusContainer, out btnStatusUp, out btnStatusDown);
 
-        if (btnTimeUp) btnTimeUp.onClick.AddListener(() => SortByTime(true));
-        if (btnTimeDown) btnTimeDown.onClick.AddListener(() => SortByTime(false));
-        if (btnContentUp) btnContentUp.onClick.AddListener(() => SortByContent(true));      
-        if (btnContentDown) btnContentDown.onClick.AddListener(() => SortByContent(false)); 
-        if (btnAreaUp) btnAreaUp.onClick.AddListener(() => SortByArea(true));
-        if (btnAreaDown) btnAreaDown.onClick.AddListener(() => SortByArea(false));
-        if (btnObsUp) btnObsUp.onClick.AddListener(() => SortByObservatory(true));
-        if (btnObsDown) btnObsDown.onClick.AddListener(() => SortByObservatory(false));
-        if (btnStatusUp) btnStatusUp.onClick.AddListener(() => SortByStatus(true));
-        if (btnStatusDown) btnStatusDown.onClick.AddListener(() => SortByStatus(false));
+        if (btnTimeUp) btnTimeUp.onClick.AddListener(() => SortByTime(false));
+        if (btnTimeDown) btnTimeDown.onClick.AddListener(() => SortByTime(true));
+
+        if (btnContentUp) btnContentUp.onClick.AddListener(() => SortByContent(false));
+        if (btnContentDown) btnContentDown.onClick.AddListener(() => SortByContent(true));
+
+        if (btnAreaUp) btnAreaUp.onClick.AddListener(() => SortByArea(false));
+        if (btnAreaDown) btnAreaDown.onClick.AddListener(() => SortByArea(true));
+
+        if (btnObsUp) btnObsUp.onClick.AddListener(() => SortByObservatory(false));
+        if (btnObsDown) btnObsDown.onClick.AddListener(() => SortByObservatory(true));
+
+        if (btnStatusUp) btnStatusUp.onClick.AddListener(() => SortByStatus(false));
+        if (btnStatusDown) btnStatusDown.onClick.AddListener(() => SortByStatus(true));
     }
 
     private void FindSortButtons(GameObject container, out Button upButton, out Button downButton)
@@ -126,27 +271,22 @@ public class AlarmLogView : BaseView
             return;
         }
 
-        Debug.Log($"[FindSortButtons] Container: {container.name}, Children: {container.transform.childCount}");
-
         var upTransform = container.transform.Find("Image_UP");
         var downTransform = container.transform.Find("Image_Down");
-
-        Debug.Log($"[FindSortButtons] {container.name} - Found UP: {upTransform != null}, Found DOWN: {downTransform != null}");
 
         if (upTransform != null)
             upButton = upTransform.GetComponent<Button>();
 
         if (downTransform != null)
             downButton = downTransform.GetComponent<Button>();
-
-        Debug.Log($"[FindSortButtons] {container.name} - UP Button: {upButton != null}, DOWN Button: {downButton != null}");
     }
+
     private void RemoveSortButtonListeners()
     {
         if (btnTimeUp) btnTimeUp.onClick.RemoveAllListeners();
         if (btnTimeDown) btnTimeDown.onClick.RemoveAllListeners();
-        if (btnContentUp) btnContentUp.onClick.RemoveAllListeners();      
-        if (btnContentDown) btnContentDown.onClick.RemoveAllListeners();  
+        if (btnContentUp) btnContentUp.onClick.RemoveAllListeners();
+        if (btnContentDown) btnContentDown.onClick.RemoveAllListeners();
         if (btnAreaUp) btnAreaUp.onClick.RemoveAllListeners();
         if (btnAreaDown) btnAreaDown.onClick.RemoveAllListeners();
         if (btnObsUp) btnObsUp.onClick.RemoveAllListeners();
@@ -167,6 +307,7 @@ public class AlarmLogView : BaseView
         currentPage = 1;
         RenderPage();
     }
+
     private void SortByContent(bool ascending)
     {
         if (AlarmLogViewModel.Instance == null) return;
@@ -179,7 +320,7 @@ public class AlarmLogView : BaseView
     private void SortByArea(bool ascending)
     {
         if (AlarmLogViewModel.Instance == null) return;
-        ToggleSortUI(sortContentContainer, ascending);
+        ToggleSortUI(sortAreaContainer, ascending);
         AlarmLogViewModel.Instance.SortByArea(ascending);
         currentPage = 1;
         RenderPage();
@@ -188,7 +329,7 @@ public class AlarmLogView : BaseView
     private void SortByObservatory(bool ascending)
     {
         if (AlarmLogViewModel.Instance == null) return;
-        ToggleSortUI(sortContentContainer, ascending);
+        ToggleSortUI(sortObsContainer, ascending);
         AlarmLogViewModel.Instance.SortByObservatory(ascending);
         currentPage = 1;
         RenderPage();
@@ -197,7 +338,7 @@ public class AlarmLogView : BaseView
     private void SortByStatus(bool ascending)
     {
         if (AlarmLogViewModel.Instance == null) return;
-        ToggleSortUI(sortContentContainer, ascending);
+        ToggleSortUI(sortStatusContainer, ascending);
         AlarmLogViewModel.Instance.SortByStatus(ascending);
         currentPage = 1;
         RenderPage();
@@ -251,6 +392,7 @@ public class AlarmLogView : BaseView
     {
         currentPage = 1;
         EnsureItemPool();
+        PopulateDropdownOptions();  // ⭐ 드롭다운 옵션 채우기
         RenderPage();
     }
 
@@ -270,7 +412,7 @@ public class AlarmLogView : BaseView
     {
         if (AlarmLogViewModel.Instance == null || AlarmLogViewModel.Instance.FilteredLogs == null)
         {
-            LogWarning("ViewModel �Ǵ� FilteredLogs�� null�Դϴ�.");
+            LogWarning("ViewModel 또는 FilteredLogs가 null입니다.");
             return;
         }
 
