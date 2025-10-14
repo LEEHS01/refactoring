@@ -22,8 +22,6 @@ namespace Views.Common
         [Tooltip("날짜 포맷 (예: yyyy/MM/dd, yyyy.MM.dd)")]
         [SerializeField] private string dateFormat = "yyyy/MM/dd";
 
-        [Header("표시 옵션")]
-        [SerializeField] private bool showDate = false;  // 날짜도 함께 표시할지
 
         private void Start()
         {
@@ -79,7 +77,7 @@ namespace Views.Common
                 timeText.text = currentTime.ToString(timeFormat);
             }
 
-            if (showDate && dateText != null)
+            if (dateText != null)
             {
                 dateText.text = currentTime.ToString(dateFormat);
             }

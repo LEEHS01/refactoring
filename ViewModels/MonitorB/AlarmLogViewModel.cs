@@ -1,5 +1,6 @@
 ﻿using Models;
 using Services;
+using Repositories.MonitorB;  // ⭐ 추가
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -9,6 +10,9 @@ namespace ViewModels.MonitorB
     public class AlarmLogViewModel : MonoBehaviour
     {
         public static AlarmLogViewModel Instance { get; private set; }
+
+        // ⭐ Repository 추가
+        private AlarmLogRepository repository = new AlarmLogRepository();
 
         public List<AlarmLogData> AllLogs { get; private set; } = new List<AlarmLogData>();
         public List<AlarmLogData> FilteredLogs { get; private set; } = new List<AlarmLogData>();
@@ -44,48 +48,62 @@ namespace ViewModels.MonitorB
 
         public void LoadAlarmLogs()
         {
-            DatabaseService.Instance.ExecuteQuery<List<AlarmLogModel>>(
-                "EXEC GET_HISTORICAL_ALARM_LOG;",
-                (models) =>
-                {
-                    if (models == null)
-                    {
-                        Debug.LogWarning("[AlarmLogViewModel] 받은 데이터가 null입니다.");
-                        AllLogs = new List<AlarmLogData>();
-                        FilteredLogs = new List<AlarmLogData>();
-                        OnLogsChanged?.Invoke();
-                        return;
-                    }
+            if (DatabaseService.Instance == null)
+            {
+                Debug.LogError("[AlarmLogViewModel] DatabaseService가 null입니다.");
+                AllLogs = new List<AlarmLogData>();
+                FilteredLogs = new List<AlarmLogData>();
+                OnLogsChanged?.Invoke();
+                return;
+            }
 
-                    AllLogs = models.Select(m => new AlarmLogData
-                    {
-                        logId = m.ALAIDX,
-                        obsId = m.OBSIDX,
-                        sensorId = m.HNSIDX,
-                        boardId = m.BOARDIDX,
-                        status = m.ALACODE,
-                        time = m.ALADT,
-                        cancelTime = m.TURNOFF_DT,
-                        isCancelled = !string.IsNullOrEmpty(m.TURNOFF_FLAG) && m.TURNOFF_FLAG.Trim() == "Y",
-                        areaName = m.AREANM ?? "",      
-                        obsName = m.OBSNM ?? "",        
-                        sensorName = m.HNSNM ?? "",     
-                        alarmValue = m.CURRVAL
-                    }).ToList();
+            Debug.Log("[AlarmLogViewModel] 알람 로그 로드 시작");
 
-                    // ⭐ 필터 재적용
-                    ApplyFilters();
+            // ⭐ 변경: Repository 사용
+            StartCoroutine(repository.GetHistoricalAlarmLogs(OnLoadSuccess, OnLoadFailed));
+        }
 
-                    Debug.Log($"[AlarmLogViewModel] 데이터 로드 완료: {AllLogs.Count}개");
-                },
-                (error) =>
-                {
-                    Debug.LogError($"[AlarmLogViewModel] 데이터 로드 실패: {error}");
-                    AllLogs = new List<AlarmLogData>();
-                    FilteredLogs = new List<AlarmLogData>();
-                    OnLogsChanged?.Invoke();
-                }
-            );
+        // ⭐ 성공 콜백
+        private void OnLoadSuccess(List<AlarmLogModel> models)
+        {
+            if (models == null)
+            {
+                Debug.LogWarning("[AlarmLogViewModel] 받은 데이터가 null입니다.");
+                AllLogs = new List<AlarmLogData>();
+                FilteredLogs = new List<AlarmLogData>();
+                OnLogsChanged?.Invoke();
+                return;
+            }
+
+            AllLogs = models.Select(m => new AlarmLogData
+            {
+                logId = m.ALAIDX,
+                obsId = m.OBSIDX,
+                sensorId = m.HNSIDX,
+                boardId = m.BOARDIDX,
+                status = m.ALACODE,
+                time = m.ALADT,
+                cancelTime = m.TURNOFF_DT,
+                isCancelled = !string.IsNullOrEmpty(m.TURNOFF_FLAG) && m.TURNOFF_FLAG.Trim() == "Y",
+                areaName = m.AREANM ?? "",
+                obsName = m.OBSNM ?? "",
+                sensorName = m.HNSNM ?? "",
+                alarmValue = m.CURRVAL
+            }).ToList();
+
+            // 필터 재적용
+            ApplyFilters();
+
+            Debug.Log($"[AlarmLogViewModel] 데이터 로드 완료: {AllLogs.Count}개");
+        }
+
+        // ⭐ 실패 콜백
+        private void OnLoadFailed(string error)
+        {
+            Debug.LogError($"[AlarmLogViewModel] 데이터 로드 실패: {error}");
+            AllLogs = new List<AlarmLogData>();
+            FilteredLogs = new List<AlarmLogData>();
+            OnLogsChanged?.Invoke();
         }
 
         #region Filtering

@@ -33,7 +33,7 @@ public class AppInitializer : MonoBehaviour
         while (DatabaseService.Instance == null)
             yield return null;
 
-        // 2. 모든 ViewModel 초기화 대기
+        // 2. 모든 ViewModel 초기화 (자동 생성)
         yield return InitializeViewModels();
 
         // 3. 기타 서비스 초기화
@@ -45,19 +45,54 @@ public class AppInitializer : MonoBehaviour
         Debug.Log("[AppInitializer] 초기화 완료");
     }
 
+    /// <summary>
+    /// 모든 ViewModel을 자동으로 생성하고 초기화
+    /// </summary>
     private IEnumerator InitializeViewModels()
     {
-        // AlarmLogViewModel 대기
-        while (AlarmLogViewModel.Instance == null)
-            yield return null;
+        Debug.Log("[AppInitializer] ViewModel 자동 생성 시작...");
 
-        // TimeViewModel 대기
-        while (TimeViewModel.Instance == null)
-            yield return null;
+        // ViewModel들을 코드로 자동 생성
+        CreateViewModel<AlarmLogViewModel>("AlarmLogViewModel");
+        CreateViewModel<TimeViewModel>("TimeViewModel");
+        CreateViewModel<SensorMonitorViewModel>("SensorMonitorViewModel");
 
-        // 추가 ViewModel들...
+        // 모든 ViewModel이 준비될 때까지 대기
+        while (AlarmLogViewModel.Instance == null ||
+               TimeViewModel.Instance == null ||
+               SensorMonitorViewModel.Instance == null)
+        {
+            yield return null;
+        }
 
         Debug.Log("[AppInitializer] 모든 ViewModel 준비 완료");
+        Debug.Log($"  - AlarmLogViewModel: {AlarmLogViewModel.Instance != null}");
+        Debug.Log($"  - TimeViewModel: {TimeViewModel.Instance != null}");
+        Debug.Log($"  - SensorMonitorViewModel: {SensorMonitorViewModel.Instance != null}");
+    }
+
+    /// <summary>
+    /// ViewModel을 자동으로 생성하는 헬퍼 메서드
+    /// </summary>
+    private void CreateViewModel<T>(string name) where T : MonoBehaviour
+    {
+        // 이미 존재하는지 확인 (중복 방지)
+        if (FindObjectOfType<T>() != null)
+        {
+            Debug.Log($"[AppInitializer] {name} 이미 존재함 - 건너뜀");
+            return;
+        }
+
+        // 새로운 GameObject 생성
+        GameObject viewModelObject = new GameObject(name);
+
+        // ViewModel 컴포넌트 추가
+        viewModelObject.AddComponent<T>();
+
+        // Scene 전환 시에도 유지
+        DontDestroyOnLoad(viewModelObject);
+
+        Debug.Log($"[AppInitializer] {name} 자동 생성 완료 ✅");
     }
 
     private IEnumerator InitializeServices()

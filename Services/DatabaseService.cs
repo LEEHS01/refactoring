@@ -1,6 +1,7 @@
 using UnityEngine;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine.Networking;
 using Newtonsoft.Json;
@@ -212,6 +213,214 @@ namespace Services
                 },
                 onError
             );
+        }
+
+        #endregion
+
+        #region 비동기 쿼리 실행 (async/await)
+
+        /// <summary>
+        /// SQL 쿼리 실행 (비동기)
+        /// Repository에서 async/await 방식으로 사용
+        /// </summary>
+        public async System.Threading.Tasks.Task<string> ExecuteQueryAsync(string query)
+        {
+            if (!_isInitialized)
+            {
+                string error = "DatabaseService가 초기화되지 않았습니다.";
+                Debug.LogError($"[DatabaseService] {error}");
+                return string.Empty;
+            }
+
+            if (_logQueries)
+            {
+                Debug.Log($"[DatabaseService] 쿼리 실행 (비동기): {query}");
+            }
+
+            // TaskCompletionSource로 콜백 → Task 변환
+            var tcs = new System.Threading.Tasks.TaskCompletionSource<string>();
+
+            StartCoroutine(ExecuteQueryCoroutineAsync(query,
+                result => tcs.SetResult(result),
+                error => tcs.SetResult(string.Empty)
+            ));
+
+            return await tcs.Task;
+        }
+
+        /// <summary>
+        /// 비동기용 쿼리 실행 코루틴
+        /// </summary>
+        private IEnumerator ExecuteQueryCoroutineAsync(string query, Action<string> onSuccess, Action<string> onError)
+        {
+            _activeRequests++;
+
+            // JSON 요청 데이터 생성
+            var requestData = new
+            {
+                SQLType = "SELECT",
+                SQLquery = query
+            };
+
+            string jsonData = JsonConvert.SerializeObject(requestData, Formatting.Indented);
+            byte[] jsonBytes = Encoding.UTF8.GetBytes(jsonData);
+
+            // HTTP POST 요청
+            using (UnityWebRequest request = new UnityWebRequest(_apiUrl, "POST"))
+            {
+                request.uploadHandler = new UploadHandlerRaw(jsonBytes);
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("Content-Type", "application/json");
+                request.timeout = _timeout;
+
+                yield return request.SendWebRequest();
+
+                _activeRequests--;
+
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    string response = request.downloadHandler.text;
+
+                    if (_logQueries)
+                    {
+                        Debug.Log($"[DatabaseService] 쿼리 성공 (비동기) - 응답 길이: {response.Length}");
+                    }
+
+                    onSuccess?.Invoke(response);
+                }
+                else
+                {
+                    string error = $"HTTP 요청 실패: {request.error}";
+                    Debug.LogError($"[DatabaseService] {error}");
+                    onError?.Invoke(error);
+                }
+            }
+        }
+
+        #endregion
+
+        #region Procedure Execution (범용)
+
+        /// <summary>
+        /// 프로시저 실행 (범용) - Repository에서 사용
+        /// </summary>
+        /// <typeparam name="T">반환 타입</typeparam>
+        /// <param name="procedureName">프로시저 이름</param>
+        /// <param name="parameters">파라미터 딕셔너리</param>
+        /// <param name="onSuccess">성공 콜백</param>
+        /// <param name="onError">실패 콜백</param>
+        public IEnumerator ExecuteProcedure<T>(
+            string procedureName,
+            Dictionary<string, object> parameters,
+            Action<List<T>> onSuccess,
+            Action<string> onError)
+        {
+            string query = BuildProcedureQuery(procedureName, parameters);
+
+            if (_logQueries)
+            {
+                Debug.Log($"[DatabaseService] 프로시저 실행: {procedureName}");
+            }
+
+            yield return StartCoroutine(
+                ExecuteQueryList<T>(query, procedureName, onSuccess, onError)
+            );
+        }
+
+        /// <summary>
+        /// 프로시저 쿼리 빌더
+        /// </summary>
+        private string BuildProcedureQuery(string procedureName, Dictionary<string, object> parameters)
+        {
+            if (parameters == null || parameters.Count == 0)
+            {
+                return $"EXEC {procedureName};";
+            }
+
+            var paramStrings = new List<string>();
+            foreach (var param in parameters)
+            {
+                string value;
+
+                if (param.Value == null)
+                {
+                    value = "NULL";
+                }
+                else if (param.Value is string)
+                {
+                    value = $"'{param.Value}'";
+                }
+                else if (param.Value is DateTime dateTime)
+                {
+                    value = $"'{dateTime:yyyy-MM-dd HH:mm:ss}'";
+                }
+                else if (param.Value is bool boolean)
+                {
+                    value = boolean ? "1" : "0";
+                }
+                else
+                {
+                    value = param.Value.ToString();
+                }
+
+                paramStrings.Add($"@{param.Key} = {value}");
+            }
+
+            return $"EXEC {procedureName} {string.Join(", ", paramStrings)};";
+        }
+
+        /// <summary>
+        /// 쿼리 실행 후 List<T>로 역직렬화
+        /// </summary>
+        private IEnumerator ExecuteQueryList<T>(
+            string query,
+            string procedureName,
+            Action<List<T>> onSuccess,
+            Action<string> onError)
+        {
+            bool isCompleted = false;
+
+            ExecuteQuery(query,
+                (response) =>
+                {
+                    try
+                    {
+                        List<T> result = JsonConvert.DeserializeObject<List<T>>(response);
+
+                        if (result == null)
+                        {
+                            result = new List<T>();
+                            Debug.LogWarning($"[DatabaseService] {procedureName} - 결과가 null, 빈 리스트 반환");
+                        }
+
+                        if (_logQueries)
+                        {
+                            Debug.Log($"[DatabaseService] {procedureName} 성공: {result.Count}개 행 반환");
+                        }
+
+                        onSuccess?.Invoke(result);
+                    }
+                    catch (Exception ex)
+                    {
+                        string error = $"JSON 파싱 실패: {ex.Message}";
+                        Debug.LogError($"[DatabaseService] {procedureName} - {error}");
+                        onError?.Invoke(error);
+                    }
+                    finally
+                    {
+                        isCompleted = true;
+                    }
+                },
+                (error) =>
+                {
+                    Debug.LogError($"[DatabaseService] {procedureName} - HTTP 오류: {error}");
+                    onError?.Invoke(error);
+                    isCompleted = true;
+                }
+            );
+
+            // 완료 대기
+            yield return new WaitUntil(() => isCompleted);
         }
 
         #endregion

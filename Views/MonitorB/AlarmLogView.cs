@@ -5,12 +5,16 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using ViewModels.MonitorB;
+using Views.MonitorB;
 
 public class AlarmLogView : BaseView
 {
     [Header("Filter UI")]
     [SerializeField] private TMP_Dropdown dropdownMap;      // 지역 필터
     [SerializeField] private TMP_Dropdown dropdownStatus;   // 상태 필터
+
+    [Header("Connected Views")]
+    [SerializeField] private MonitorBSensorView monitorBSensorView;
 
     [Header("Sort UI - Containers")]
     [SerializeField] private GameObject sortTimeContainer;
@@ -69,6 +73,14 @@ public class AlarmLogView : BaseView
         InitializeSortButtons();
         InitializePaginationButtons();
         InitializeFilterDropdowns();  // ⭐ 드롭다운 초기화 추가
+
+        foreach (var item in itemPool)
+        {
+            if (item != null)
+            {
+                item.OnItemClicked += OnAlarmItemClicked;
+            }
+        }
     }
 
     protected override void ConnectToViewModel()
@@ -96,6 +108,14 @@ public class AlarmLogView : BaseView
         RemoveSortButtonListeners();
         RemovePaginationButtonListeners();
         RemoveFilterDropdownListeners();  // ⭐ 드롭다운 리스너 제거 추가
+
+        foreach (var item in itemPool)
+        {
+            if (item != null)
+            {
+                item.OnItemClicked -= OnAlarmItemClicked;
+            }
+        }
     }
 
     #endregion
@@ -561,6 +581,46 @@ public class AlarmLogView : BaseView
             txt.color = normalTextColor;
 
         pageButtons.Add(btn);
+    }
+
+    #endregion
+
+    #region Alarm Item Click Handler
+
+    /// <summary>
+    /// 알람 아이템 클릭 시 - 해당 관측소의 센서 데이터 표시
+    /// </summary>
+    private void OnAlarmItemClicked(Models.AlarmLogData alarmData)
+    {
+        LogInfo($"알람 클릭: {alarmData.obsName} (obsId={alarmData.obsId})");
+
+        if (monitorBSensorView == null)
+        {
+            LogError("MonitorBSensorView가 연결되지 않았습니다! Inspector에서 연결하세요.");
+            return;
+        }
+
+        // ModelProvider에서 관측소 정보 가져오기
+        if (UiManager.Instance?.modelProvider != null)
+        {
+            var obs = UiManager.Instance.modelProvider.GetObs(alarmData.obsId);
+
+            if (obs != null)
+            {
+                // 센서 뷰에 데이터 로드 요청
+                monitorBSensorView.LoadObservatory(alarmData.obsId, obs.areaName, obs.obsName);
+                LogInfo($"센서 데이터 로드 요청: {obs.areaName} - {obs.obsName}");
+            }
+            else
+            {
+                LogError($"관측소 정보를 찾을 수 없음: obsId={alarmData.obsId}");
+            }
+        }
+        else
+        {
+            LogWarning("ModelProvider가 없습니다. 임시 데이터로 로드합니다.");
+            monitorBSensorView.LoadObservatory(alarmData.obsId, alarmData.areaName, alarmData.obsName);
+        }
     }
 
     #endregion
