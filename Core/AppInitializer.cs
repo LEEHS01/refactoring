@@ -56,11 +56,13 @@ public class AppInitializer : MonoBehaviour
         CreateViewModel<AlarmLogViewModel>("AlarmLogViewModel");
         CreateViewModel<TimeViewModel>("TimeViewModel");
         CreateViewModel<SensorMonitorViewModel>("SensorMonitorViewModel");
+        CreateViewModel<SensorChartViewModel>("SensorChartViewModel");
 
         // 모든 ViewModel이 준비될 때까지 대기
         while (AlarmLogViewModel.Instance == null ||
                TimeViewModel.Instance == null ||
-               SensorMonitorViewModel.Instance == null)
+               SensorMonitorViewModel.Instance == null ||
+               SensorChartViewModel.Instance == null)
         {
             yield return null;
         }
@@ -92,7 +94,7 @@ public class AppInitializer : MonoBehaviour
         // Scene 전환 시에도 유지
         DontDestroyOnLoad(viewModelObject);
 
-        Debug.Log($"[AppInitializer] {name} 자동 생성 완료 ✅");
+        Debug.Log($"[AppInitializer] {name} 자동 생성 완료");
     }
 
     private IEnumerator InitializeServices()

@@ -14,7 +14,7 @@ public class AlarmLogView : BaseView
     [SerializeField] private TMP_Dropdown dropdownStatus;   // 상태 필터
 
     [Header("Connected Views")]
-    [SerializeField] private MonitorBSensorView monitorBSensorView;
+    [SerializeField] private SensorView monitorBSensorView;
 
     [Header("Sort UI - Containers")]
     [SerializeField] private GameObject sortTimeContainer;
