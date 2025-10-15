@@ -25,12 +25,13 @@ namespace Views.MonitorB
 
         // 코드에서 찾아서 사용
         private ChartLineRenderer chartRenderer;
+        private ChartTooltipHandler tooltipHandler;
 
         private void Awake()
         {
             // 같은 GameObject 또는 자식에서 찾기
             chartRenderer = GetComponentInChildren<ChartLineRenderer>();
-
+            tooltipHandler = GetComponentInChildren<ChartTooltipHandler>();
             if (chartRenderer == null)
             {
                 Debug.LogError("[SensorChartView] ChartLineRenderer를 찾을 수 없습니다!");
@@ -91,7 +92,7 @@ namespace Views.MonitorB
             UpdateChartTimeRangeLabels(chartData);
             UpdateTimeLabels(chartData.timeLabels);
             UpdateValueLabels();
-            UpdateChart();
+            UpdateChart(chartData);
         }
         /// <summary>
         /// 차트 조회 시점 표시
@@ -137,12 +138,12 @@ namespace Views.MonitorB
                 if (valueLabels[i] != null)
                 {
                     int reverseIndex = valueLabels.Count - 1 - i;
-                    valueLabels[i].text = Mathf.Round(labels[reverseIndex]).ToString();
+                    valueLabels[i].text = labels[reverseIndex].ToString("F2"); // 소수점 2자리
                 }
             }
         }
 
-        private void UpdateChart()
+        private void UpdateChart(ChartData chartData)
         {
             var normalizedValues = SensorChartViewModel.Instance.GetNormalizedValues();
 
@@ -150,6 +151,11 @@ namespace Views.MonitorB
             {
                 chartRenderer.UpdateChart(normalizedValues);
                 Debug.Log($"[SensorChartView] 차트 그리기 완료");
+                // 툴팁 핸들러에 데이터 전달
+                if (tooltipHandler != null)
+                {
+                    tooltipHandler.Initialize(chartRenderer.GetChartPoints(), chartData);
+                }
             }
         }
 

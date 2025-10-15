@@ -123,6 +123,14 @@ namespace Common.UI
             linePoints.Clear();
             SetVerticesDirty();
         }
+
+        /// <summary>
+        /// 차트 포인트 리스트 반환 (툴팁용)
+        /// </summary>
+        public List<Transform> GetChartPoints()
+        {
+            return new List<Transform>(chartPoints);
+        }
         #endregion
 
         #region Private Methods - Chart Bounds
