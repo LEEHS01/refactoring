@@ -1,6 +1,7 @@
 ﻿// Views/MonitorB/SensorChartView.cs
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 using Common.UI;
 using Models.MonitorB;
@@ -13,6 +14,7 @@ namespace Views.MonitorB
         [Header("UI Components")]
         [SerializeField] private TMP_Text txtSensorName;
         [SerializeField] private TMP_Text txtChartTimeRange;
+        [SerializeField] private Button btnAIAnalysis;
 
         [Header("Chart Configuration")]
         [SerializeField] private RectTransform chartBoundsArea;
@@ -27,6 +29,11 @@ namespace Views.MonitorB
         private ChartLineRenderer chartRenderer;
         private ChartTooltipHandler tooltipHandler;
 
+        private PopupAIAnalysisView aiAnalysisPopup;
+        private int currentObsId;
+        private int currentBoardId;
+        private int currentHnsId;
+
         private void Awake()
         {
             // 같은 GameObject 또는 자식에서 찾기
@@ -36,17 +43,40 @@ namespace Views.MonitorB
             {
                 Debug.LogError("[SensorChartView] ChartLineRenderer를 찾을 수 없습니다!");
             }
+            aiAnalysisPopup = FindObjectOfType<PopupAIAnalysisView>(true);
         }
 
         private void Start()
         {
             InitializeChart();
             ConnectToViewModel();
+
+            if (btnAIAnalysis != null)
+            {
+                btnAIAnalysis.onClick.AddListener(OnClickAIAnalysisButton);
+            }
         }
 
         private void OnDestroy()
         {
             DisconnectFromViewModel();
+
+            if (btnAIAnalysis != null)
+            {
+                btnAIAnalysis.onClick.RemoveListener(OnClickAIAnalysisButton);
+            }
+        }
+
+        private void OnClickAIAnalysisButton()
+        {
+            if (aiAnalysisPopup == null)
+            {
+                Debug.LogError("[SensorChartView] AI 분석 팝업을 찾을 수 없습니다!");
+                return;
+            }
+
+            aiAnalysisPopup.OpenPopup(currentObsId, currentBoardId, currentHnsId);
+            Debug.Log($"[SensorChartView] AI 분석 팝업 열기: obs={currentObsId}, board={currentBoardId}, hns={currentHnsId}");
         }
 
         private void InitializeChart()
@@ -166,6 +196,10 @@ namespace Views.MonitorB
 
         public void LoadSensorChart(int obsId, int boardId, int hnsId, string sensorName)
         {
+            currentObsId = obsId;
+            currentBoardId = boardId;
+            currentHnsId = hnsId;
+
             if (txtSensorName != null)
             {
                 txtSensorName.text = sensorName;

@@ -57,12 +57,14 @@ public class AppInitializer : MonoBehaviour
         CreateViewModel<TimeViewModel>("TimeViewModel");
         CreateViewModel<SensorMonitorViewModel>("SensorMonitorViewModel");
         CreateViewModel<SensorChartViewModel>("SensorChartViewModel");
+        CreateViewModel<AIAnalysisViewModel>("AIAnalysisViewModel");
 
         // 모든 ViewModel이 준비될 때까지 대기
         while (AlarmLogViewModel.Instance == null ||
                TimeViewModel.Instance == null ||
                SensorMonitorViewModel.Instance == null ||
-               SensorChartViewModel.Instance == null)
+               SensorChartViewModel.Instance == null ||
+               AIAnalysisViewModel.Instance == null)
         {
             yield return null;
         }
