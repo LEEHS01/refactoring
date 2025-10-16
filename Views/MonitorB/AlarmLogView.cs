@@ -15,6 +15,7 @@ public class AlarmLogView : BaseView
 
     [Header("Connected Views")]
     [SerializeField] private SensorView monitorBSensorView;
+    [SerializeField] private PopupAlarmDetailView popupAlarmDetail;
 
     [Header("Sort UI - Containers")]
     [SerializeField] private GameObject sortTimeContainer;
@@ -594,20 +595,38 @@ public class AlarmLogView : BaseView
     {
         LogInfo($"알람 클릭: {alarmData.obsName} (obsId={alarmData.obsId})");
 
+        // ⭐ FindFirstObjectByType 대신 직접 참조 사용
+        if (popupAlarmDetail != null)
+        {
+            popupAlarmDetail.OpenPopup(
+                obsId: alarmData.obsId,
+                alarmBoardId: alarmData.boardId,
+                alarmHnsId: alarmData.sensorId,
+                alarmTime: alarmData.time,
+                alarmCurrVal: alarmData.alarmValue,
+                obsName: alarmData.obsName,
+                areaName: alarmData.areaName
+            );
+
+            LogInfo($"알람 상세 팝업 열림");
+        }
+        else
+        {
+            LogError("PopupAlarmDetailView가 연결되지 않았습니다! Inspector에서 연결하세요.");
+        }
+
+        // 기존 센서 뷰 로드 코드
         if (monitorBSensorView == null)
         {
             LogError("MonitorBSensorView가 연결되지 않았습니다! Inspector에서 연결하세요.");
             return;
         }
 
-        // ModelProvider에서 관측소 정보 가져오기
         if (UiManager.Instance?.modelProvider != null)
         {
             var obs = UiManager.Instance.modelProvider.GetObs(alarmData.obsId);
-
             if (obs != null)
             {
-                // 센서 뷰에 데이터 로드 요청
                 monitorBSensorView.LoadObservatory(alarmData.obsId, obs.areaName, obs.obsName);
                 LogInfo($"센서 데이터 로드 요청: {obs.areaName} - {obs.obsName}");
             }

@@ -58,13 +58,15 @@ public class AppInitializer : MonoBehaviour
         CreateViewModel<SensorMonitorViewModel>("SensorMonitorViewModel");
         CreateViewModel<SensorChartViewModel>("SensorChartViewModel");
         CreateViewModel<AIAnalysisViewModel>("AIAnalysisViewModel");
+        CreateViewModel<AlarmDetailViewModel>("AlarmDetailViewModel");
 
         // 모든 ViewModel이 준비될 때까지 대기
         while (AlarmLogViewModel.Instance == null ||
                TimeViewModel.Instance == null ||
                SensorMonitorViewModel.Instance == null ||
                SensorChartViewModel.Instance == null ||
-               AIAnalysisViewModel.Instance == null)
+               AIAnalysisViewModel.Instance == null ||
+               AlarmDetailViewModel.Instance == null)
         {
             yield return null;
         }
@@ -81,7 +83,7 @@ public class AppInitializer : MonoBehaviour
     private void CreateViewModel<T>(string name) where T : MonoBehaviour
     {
         // 이미 존재하는지 확인 (중복 방지)
-        if (FindObjectOfType<T>() != null)
+        if (FindFirstObjectByType<T>() != null)
         {
             Debug.Log($"[AppInitializer] {name} 이미 존재함 - 건너뜀");
             return;

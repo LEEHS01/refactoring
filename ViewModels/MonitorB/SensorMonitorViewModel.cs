@@ -136,7 +136,7 @@ namespace ViewModels.MonitorB
             // Board별 분류
             foreach (var sensor in sensors)
             {
-                Debug.Log($"[센서 분류] {sensor.sensorName} - Board: {sensor.boardIdx}, HNS: {sensor.hnsIdx}, 값: {sensor.currentValue}, 단위: {sensor.unit}");
+                //Debug.Log($"[센서 분류] {sensor.sensorName} - Board: {sensor.boardIdx}, HNS: {sensor.hnsIdx}, 값: {sensor.currentValue}, 단위: {sensor.unit}");
 
 
                 switch (sensor.boardIdx)
