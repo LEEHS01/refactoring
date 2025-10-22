@@ -1,0 +1,27 @@
+USE [HNS_DP]
+GO
+/****** Object:  StoredProcedure [dbo].[GET_CHARTVALUE]    Script Date: 2025-10-22 오후 4:33:01 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[GET_CHARTVALUE]
+(
+	@obsidx int,
+	@start_dt varchar(20),
+	@end_dt varchar(20),
+	@interval int
+)
+AS
+BEGIN
+SELECT  
+	CAST(STUFF(STUFF(STUFF(OBSDT, 9, 0, ' '), 12, 0, ':'), 15, 0, ':') AS datetime) AS OBSDT, 
+	HNSIDX, 
+	BOARDIDX, 
+	OBSIDX, 
+	ISNULL(VAL, 0) AS VAL, 
+	ISNULL(AIVAL, 0) AS AIVAL
+FROM     dbo.TB_HNS_DATA
+WHERE  (DATEDIFF(MINUTE, CAST(STUFF(STUFF(STUFF(OBSDT, 9, 0, ' '), 12, 0, ':'), 15, 0, ':') AS datetime), CAST(STUFF(STUFF(STUFF(@end_dt, 9, 0, ' '), 12, 0, ':'), 15, 0, ':') AS datetime)) %  @interval = 0)
+and OBSIDX = @obsidx and OBSDT >= @start_dt AND OBSDT <= @end_dt
+END

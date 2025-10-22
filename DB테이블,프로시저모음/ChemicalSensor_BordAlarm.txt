@@ -1,0 +1,61 @@
+USE [HNS_DP]
+GO
+/****** Object:  StoredProcedure [dbo].[ChemicalSensor_BordAlarm]    Script Date: 2025-10-22 오후 4:34:49 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[ChemicalSensor_BordAlarm]
+(
+	@obsSTATE	char(2)
+)
+AS
+BEGIN
+SELECT @obsSTATE = [MEAS_STATE]  FROM [MSTOMS_DBLINK].[dbHNS].[dbo].[ChemicalSensor]
+
+INSERT INTO hns_dp.dbo.TB_BOARD_STATE_DATA(
+    OBSDT,
+    BOARDIDX,
+    OBSIDX,
+    STCD,
+    BRD_STATE
+) 
+SELECT 
+    CONVERT(VARCHAR, GETDATE(), 112) + 
+    RIGHT('0' + CAST(DATEPART(HOUR, GETDATE()) AS VARCHAR), 2) +
+    RIGHT('0' + CAST(DATEPART(MINUTE, GETDATE()) AS VARCHAR), 2) +
+    RIGHT('0' + CAST(DATEPART(SECOND, GETDATE()) AS VARCHAR), 2) AS CurrentDateTime,
+    2,
+    1,
+    MEAS_STATE,
+    BRD_STATE
+FROM 
+    (
+        SELECT 
+            MEAS_STATE,
+            BRD_STATE,
+            ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS RowNum
+        FROM 
+             MSTOMS_DBLINK.dbHNS.dbo.chemicalsensor
+    ) AS SubQuery
+
+IF @obsSTATE = '01'
+BEGIN
+	INSERT INTO [dbo].[TB_ALARM_DATA]
+           ([ALADT]
+           ,[ALACODE]
+           ,[HNSIDX]
+           ,[OBSIDX]
+           ,[BOARDIDX]
+           ,[TURNOFFYN])
+SELECT
+			[MEAS_DT],
+			'01' AS ALACODE,
+			0 AS HNSIDX,
+			[pvLocalCode],
+			2 AS BOARDNUM,
+			'00' as YN
+FROM 
+			[MSTOMS_DBLINK].[dbHNS].[dbo].[ChemicalSensor]
+END
+END

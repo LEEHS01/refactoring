@@ -1,0 +1,74 @@
+USE [HNS_DP]
+GO
+/****** Object:  StoredProcedure [dbo].[GET_SENSOR_INFO]    Script Date: 2025-10-22 오후 4:31:06 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[GET_SENSOR_INFO]  -- ⭐ 변경된 이름
+(
+    @obsidx INT
+)
+AS
+BEGIN
+    -- Board 1: 독성도
+    SELECT 
+        HNS.HNSIDX,
+        HNS.OBSIDX,
+        HNS.BOARDIDX,
+        HNS.HNSNM,
+        HNS.UNIT,
+        PV.MEAS_VALUE AS VAL,
+        HNS.USEYN,
+        HNS.INSPECTIONFLAG,
+        ISNULL(HNS.ALAHIHIVAL, 0) AS HIHI,
+        ISNULL(HNS.ALAHIVAL, 0) AS HI
+    FROM TB_HNS HNS
+    LEFT OUTER JOIN toxiSensorpv PV 
+        ON PV.LocalCode = HNS.OBSIDX 
+        AND HNS.HNSIDX = PV.pvId
+    WHERE HNS.OBSIDX = @obsidx 
+        AND HNS.BOARDIDX = 1
+
+    UNION ALL
+
+    -- Board 2: 화학물질
+    SELECT 
+        HNS.HNSIDX,
+        HNS.OBSIDX,
+        HNS.BOARDIDX,
+        HNS.HNSNM,
+        HNS.UNIT,
+        PV.MEAS_VALUE AS VAL,
+        HNS.USEYN,
+        HNS.INSPECTIONFLAG,
+        ISNULL(HNS.ALAHIHIVAL, 0) AS HIHI,
+        ISNULL(HNS.ALAHIVAL, 0) AS HI
+    FROM TB_HNS HNS
+    LEFT OUTER JOIN ChemicalSensorPV PV 
+        ON PV.LocalCode = HNS.OBSIDX 
+        AND HNS.HNSIDX = PV.pvId
+    WHERE HNS.OBSIDX = @obsidx 
+        AND HNS.BOARDIDX = 2
+
+    UNION ALL
+
+    -- Board 3: 수질
+    SELECT 
+        HNS.HNSIDX,
+        HNS.OBSIDX,
+        HNS.BOARDIDX,
+        HNS.HNSNM,
+        HNS.UNIT,
+        PV.measured_value AS VAL,
+        HNS.USEYN,
+        HNS.INSPECTIONFLAG,
+        ISNULL(HNS.ALAHIHIVAL, 0) AS HIHI,
+        ISNULL(HNS.ALAHIVAL, 0) AS HI
+    FROM TB_HNS HNS
+    LEFT OUTER JOIN measure_recent PV 
+        ON PV.obs_id = HNS.OBSIDX 
+        AND HNS.HNSIDX = PV.sensor_id
+    WHERE HNS.OBSIDX = @obsidx 
+        AND HNS.BOARDIDX = 3
+END

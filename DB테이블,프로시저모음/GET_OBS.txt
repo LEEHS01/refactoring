@@ -1,0 +1,17 @@
+USE [HNS_DP]
+GO
+/****** Object:  StoredProcedure [dbo].[GET_OBS]    Script Date: 2025-10-22 오후 4:31:21 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+                ALTER PROCEDURE [dbo].[GET_OBS]
+                AS
+                BEGIN
+                SELECT  AREA.AREANM, OBS.AREAIDX, OBS.OBSNM, AREA.AREATYPE, OBS.OBSIDX, CCTV.OUT_CCTVURL, CCTV.IN_CCTVURL
+                FROM      dbo.TB_AREA AS AREA
+				    INNER JOIN dbo.TB_OBS AS OBS ON AREA.AREAIDX = OBS.AREAIDX
+				    INNER JOIN dbo.TB_OBS_CCTV AS CCTV ON CCTV.OBSIDX = OBS.OBSIDX
+                END
+                

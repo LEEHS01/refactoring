@@ -1,0 +1,25 @@
+USE [HNS_DP]
+GO
+/****** Object:  StoredProcedure [dbo].[GET_CURRENT_CHEMICAL]    Script Date: 2025-10-22 오후 4:32:25 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[GET_CURRENT_CHEMICAL]
+(
+	@id int
+)
+AS
+BEGIN
+SELECT 
+	PV.pvId AS HNSIDX
+	,PV.GRP_INDEX AS BOARDIDX
+	, PV.LocalCode AS OBSIDX
+	, PV.MEAS_DT AS OBSDT
+	, PV.MEAS_VALUE AS VAL
+	, A.MEAS_STATE AS STCD
+	, ISNULL(A.MEAS_ADDINFO, '0000') AS STEP
+FROM ChemicalSensorPV PV
+JOIN chemicalsensor A ON PV.LocalCode = A.pvLocalCode
+WHERE PV.LocalCode = @id
+END

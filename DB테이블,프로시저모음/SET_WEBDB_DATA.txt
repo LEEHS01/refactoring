@@ -1,0 +1,40 @@
+USE [HNS_DP]
+GO
+/****** Object:  StoredProcedure [dbo].[SET_WEBDB_DATA]    Script Date: 2025-10-22 오후 4:29:02 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER PROCEDURE [dbo].[SET_WEBDB_DATA]
+AS
+BEGIN
+DECLARE @current_time CHAR(14) = FORMAT(DATEADD(MINUTE, DATEDIFF(MINUTE, 0, GETDATE()) / 10 * 10, 0), 'yyyyMMddHHmmss');
+
+    IF EXISTS (
+    SELECT 1 
+    FROM hns_dp.dbo.TB_HNS_DATA
+    WHERE OBSDT = @current_time
+)
+BEGIN
+    INSERT INTO [hns_dp].[dbo].[TB_HNS_DATA] (
+        OBSDT,
+        HNSIDX,
+        OBSIDX,
+        BOARDIDX,
+        VAL,
+        MISSYN,
+        AIVAL
+    ) 
+    SELECT 
+        @current_time,
+        sensor_id, 
+        obs_id, 
+        3, 
+        measured_value, 
+        NULL,  
+        NULL
+    FROM 
+        HNS_DP.[dbo].[measure_recent]
+END
+END;

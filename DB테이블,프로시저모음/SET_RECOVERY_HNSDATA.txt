@@ -1,0 +1,90 @@
+USE [HNS_DP]
+GO
+/****** Object:  StoredProcedure [dbo].[SET_RECOVERY_HNSDATA]    Script Date: 2025-10-22 오후 4:29:24 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER PROCEDURE [dbo].[SET_RECOVERY_HNSDATA]
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @current_time NVARCHAR(14) = FORMAT(DATEADD(MINUTE, DATEDIFF(MINUTE, 0, GETDATE()) / 10 * 10, 0), 'yyyyMMddHHmmss');
+    
+    DECLARE @LocalCodes TABLE (LocalCode INT);
+    INSERT INTO @LocalCodes (LocalCode) VALUES (1), (29);
+    
+    DECLARE @code INT;
+    DECLARE code_cursor CURSOR FOR SELECT LocalCode FROM @LocalCodes;
+    
+    OPEN code_cursor;
+    FETCH NEXT FROM code_cursor INTO @code;
+    
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        IF EXISTS (
+            SELECT 1 
+            FROM [dbo].[ChemicalSensorPV] 
+            WHERE LEFT(MEAS_DT, 11) + '000' = @current_time 
+              AND LocalCode = @code
+        )
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 
+                FROM [dbo].[TB_HNS_DATA] 
+                WHERE OBSDT = @current_time 
+                  AND BOARDIDX = 2 
+                  AND OBSIDX = @code
+            )
+            BEGIN
+                INSERT INTO [hns_dp].[dbo].[TB_HNS_DATA] (
+                    OBSDT, HNSIDX, OBSIDX, BOARDIDX, VAL, MISSYN, AIVAL
+                ) 
+                SELECT 
+                    LEFT(MEAS_DT, 11) + '000' AS OBSDT,
+                    pvid, 
+                    LocalCode, 
+                    2, 
+                    MEAS_VALUE, 
+                    NULL, NULL
+                FROM hns_dp.dbo.ChemicalSensorPV
+                WHERE LocalCode = @code;
+            END
+            ELSE
+            BEGIN
+                UPDATE h
+                SET h.VAL = t.MEAS_VALUE,
+                    h.MISSYN = NULL
+                FROM TB_HNS_DATA h
+                JOIN ChemicalSensorPV t 
+                    ON t.LocalCode = @code
+                    AND t.pvid = h.HNSIDX 
+                WHERE h.OBSIDX = @code
+                  AND h.BOARDIDX = 2
+                  AND h.MISSYN = 1
+                  AND h.OBSDT = @current_time;
+            END
+        END
+        ELSE
+        BEGIN
+            INSERT INTO [hns_dp].[dbo].[TB_HNS_DATA] (
+                OBSDT, HNSIDX, OBSIDX, BOARDIDX, VAL, MISSYN, AIVAL
+            ) 
+            SELECT 
+                @current_time,
+                pvid, 
+                LocalCode, 
+                2, 
+                NULL, 
+                1, NULL
+            FROM hns_dp.dbo.ChemicalSensorPV
+            WHERE LocalCode = @code;
+        END
+        
+        FETCH NEXT FROM code_cursor INTO @code;
+    END
+    
+    CLOSE code_cursor;
+    DEALLOCATE code_cursor;
+END;

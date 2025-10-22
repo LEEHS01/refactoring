@@ -1,0 +1,86 @@
+USE [HNS_DP]
+GO
+/****** Object:  StoredProcedure [dbo].[TOXIsensor_BordAlarm]    Script Date: 2025-10-22 오후 4:28:28 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[TOXIsensor_BordAlarm]
+AS
+BEGIN
+DECLARE @CNT INT;
+DECLARE @VAL INT;
+DECLARE @DT DATETIME;
+DECLARE @FIX INT;
+DECLARE @REGISTFLAG CHAR(2);
+DECLARE @OBSIDX INT;
+
+-- 커서 선언
+DECLARE board_cursor CURSOR FOR
+SELECT 
+   cast(stuff(stuff(stuff(BOARD.MEAS_DT, 9, 0, ' '), 12, 0, ':'), 15, 0, ':') as datetime) as DT,
+   BOARD.MEAS_STATE as VAL,
+   ISNULL(ALA.ALACNT, 0) as CNT,
+   HNS.INSPECTIONFLAG as FIX,
+   ALA.REGISTFLAG,
+   BOARD.pvLocalCode as OBSIDX
+FROM 
+   hns_dp.dbo.TOXIsensor BOARD
+JOIN TB_HNS HNS ON BOARD.pvLocalCode = HNS.OBSIDX AND HNS.BOARDIDX = 1
+LEFT OUTER JOIN hns_dp.dbo.TB_ALARM_TEMP ALA ON ALA.OBSIDX = BOARD.pvLocalCode AND ALA.BOARDIDX = 1 AND ALA.HNSIDX = 0 AND ALA.ALAGRADE = 0
+
+OPEN board_cursor
+
+FETCH NEXT FROM board_cursor INTO @DT, @VAL, @CNT, @FIX, @REGISTFLAG, @OBSIDX
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+   IF(@VAL > 0 AND @FIX = 0)
+   BEGIN
+       -- 첫 알람 발생
+       IF @CNT = 0
+       BEGIN    
+           INSERT INTO hns_dp.dbo.TB_ALARM_TEMP
+           ([ALADT], [OBSIDX], [BOARDIDX], [HNSIDX], [CURVAL], [ALAGRADE] ,[ALACNT])
+           VALUES
+           (
+               @DT, @OBSIDX, 1, 0, @VAL, 0, 1
+           )		
+       END
+       ELSE
+       BEGIN    
+           IF @REGISTFLAG IS NULL
+           BEGIN
+               INSERT INTO hns_dp.dbo.TB_ALARM_DATA
+               ([ALADT],[OBSIDX],[BOARDIDX],[HNSIDX],[CURRVAL],[ALACODE])
+               VALUES
+               (
+                   @DT, @OBSIDX, 1, 0, @VAL, 0
+               )
+                       
+               UPDATE hns_dp.dbo.TB_ALARM_TEMP
+               SET ALACNT = @CNT + 1, REGISTFLAG = 'Y'
+               WHERE OBSIDX = @OBSIDX AND BOARDIDX = 1 AND HNSIDX = 0 AND ALAGRADE = 0 AND REGISTFLAG IS NULL
+           END
+       END    
+   END
+   ELSE
+   BEGIN
+       IF (@CNT > 0)
+       BEGIN    
+           UPDATE hns_dp.dbo.TB_ALARM_DATA
+           SET TURNOFF_DT = @DT, TURNOFF_FLAG = 'Y'
+           WHERE OBSIDX = @OBSIDX AND BOARDIDX = 1 AND HNSIDX = 0 AND ALACODE = 0 AND TURNOFF_FLAG IS NULL
+
+           DELETE 
+           FROM hns_dp.dbo.TB_ALARM_TEMP 
+           WHERE OBSIDX = @OBSIDX AND BOARDIDX = 1 AND HNSIDX = 0 AND ALAGRADE = 0 AND REGISTFLAG = 'Y'
+       END
+   END
+
+   FETCH NEXT FROM board_cursor INTO @DT, @VAL, @CNT, @FIX, @REGISTFLAG, @OBSIDX
+END
+
+CLOSE board_cursor
+DEALLOCATE board_cursor
+END

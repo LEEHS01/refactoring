@@ -1,0 +1,24 @@
+USE [HNS_DP]
+GO
+/****** Object:  StoredProcedure [dbo].[GET_SENSOR_STEP]    Script Date: 2025-10-22 오후 4:30:44 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[GET_SENSOR_STEP]
+(
+    @obsid int
+)
+AS
+BEGIN
+    SELECT 
+        @obsid as obsid,
+        ISNULL(MEAS_ADDINFO, '25') as toxistep,
+        ISNULL(MEAS_ADDINFO, '25') as chemistep
+    FROM (
+        SELECT TOP 1 MEAS_ADDINFO
+        FROM TB_3D_DATA
+        WHERE OBSIDX = @obsid
+        ORDER BY OBSDT DESC
+    ) as latest
+END

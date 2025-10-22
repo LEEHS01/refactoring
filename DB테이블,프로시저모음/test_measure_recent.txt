@@ -1,0 +1,19 @@
+USE [HNS_DP]
+GO
+
+/****** Object:  Table [dbo].[test_measure_recent]    Script Date: 2025-10-22 오후 4:41:51 ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[test_measure_recent](
+	[obs_id] [int] NOT NULL,
+	[sensor_id] [int] NOT NULL,
+	[measured_time] [nchar](14) NOT NULL,
+	[measured_value] [float] NOT NULL
+) ON [PRIMARY]
+GO
+
+

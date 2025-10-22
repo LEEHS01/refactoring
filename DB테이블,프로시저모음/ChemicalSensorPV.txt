@@ -1,0 +1,26 @@
+USE [HNS_DP]
+GO
+
+/****** Object:  Table [dbo].[ChemicalSensorPV]    Script Date: 2025-10-22 오후 4:36:58 ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[ChemicalSensorPV](
+	[pvId] [smallint] NOT NULL,
+	[MEAS_DT] [nchar](14) NOT NULL,
+	[MEAS_VALUE] [float] NULL,
+	[GRP_INDEX] [smallint] NOT NULL,
+	[LocalCode] [bigint] NOT NULL,
+ CONSTRAINT [PK_ChemicalSensorPV] PRIMARY KEY CLUSTERED 
+(
+	[pvId] ASC,
+	[GRP_INDEX] ASC,
+	[LocalCode] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+

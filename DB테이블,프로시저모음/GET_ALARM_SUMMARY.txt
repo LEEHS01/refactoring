@@ -1,0 +1,33 @@
+USE [HNS_DP]
+GO
+/****** Object:  StoredProcedure [dbo].[GET_ALARM_SUMMARY]    Script Date: 2025-10-22 오후 4:34:00 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+                ALTER PROCEDURE [dbo].[GET_ALARM_SUMMARY]
+                    @areaid INT
+                AS
+                BEGIN
+                    SET NOCOUNT ON;
+
+                    DECLARE @Now DATE = GETDATE();
+                    DECLARE @StartMonth DATE = DATEFROMPARTS(YEAR(DATEADD(MONTH, -11, @Now)), MONTH(DATEADD(MONTH, -11, @Now)), 1);
+                    DECLARE @EndMonth DATE = EOMONTH(@Now);
+
+                    SELECT 
+                        OBS.OBSIDX,
+                        YEAR(ALA.ALADT) AS [YEAR],
+                        MONTH(ALA.ALADT) AS [MONTH],
+                        COUNT(*) AS CNT
+                    FROM TB_ALARM_DATA ALA
+                    JOIN TB_OBS OBS ON ALA.OBSIDX = OBS.OBSIDX
+                    WHERE 
+                        ALA.ALADT BETWEEN @StartMonth AND @EndMonth
+                        AND OBS.AREAIDX = @areaid
+                    GROUP BY 
+                        OBS.OBSIDX, YEAR(ALA.ALADT), MONTH(ALA.ALADT)
+                    ORDER BY 
+                        YEAR(ALA.ALADT), MONTH(ALA.ALADT)
+                END;

@@ -1,0 +1,96 @@
+USE [HNS_DP]
+GO
+/****** Object:  StoredProcedure [dbo].[TOXIsensor_ToxiAlarm]    Script Date: 2025-10-22 오후 4:26:59 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[TOXIsensor_ToxiAlarm]
+AS
+BEGIN
+DECLARE @CNT INT;
+DECLARE @HNSIDX INT;
+DECLARE @VAL FLOAT;
+DECLARE @HIHIVAL FLOAT;
+DECLARE @DT DATETIME;
+DECLARE @OBSIDX INT;
+DECLARE @FIX INT;
+DECLARE @REGISTFLAG CHAR(2);
+
+-- 커서 선언 (JOIN 조건 수정)
+DECLARE sensor_cursor CURSOR FOR
+SELECT 
+    cast(stuff(stuff(stuff(PV.MEAS_DT, 9, 0, ' '), 12, 0, ':'), 15, 0, ':') as datetime) as DT,
+    PV.LocalCode as OBSIDX,
+    PV.pvId as HNSIDX,
+    HNS.ALAHIHIVAL,
+    PV.MEAS_VALUE as VAL,
+    ISNULL(ALA.ALACNT, 0) as CNT,
+    ALA.REGISTFLAG,
+    HNS.INSPECTIONFLAG as FIX
+FROM hns_dp.dbo.toxiSensorpv PV
+JOIN hns_dp.dbo.TB_HNS HNS ON PV.LocalCode = HNS.OBSIDX AND HNS.BOARDIDX = 1 AND PV.pvId = HNS.HNSIDX  -- 수정: GRP_INDEX 제거
+LEFT OUTER JOIN hns_dp.dbo.TB_ALARM_TEMP ALA ON ALA.OBSIDX = PV.LocalCode AND ALA.BOARDIDX = 1 AND ALA.HNSIDX = PV.pvId AND ALA.ALAGRADE = 2
+
+OPEN sensor_cursor
+
+FETCH NEXT FROM sensor_cursor INTO @DT, @OBSIDX, @HNSIDX, @HIHIVAL, @VAL, @CNT, @REGISTFLAG, @FIX
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    -- 독성도는 0보다 크면 무조건 알람
+    IF(@FIX = 0 AND @VAL > 0)
+    BEGIN
+        -- 첫 알람 발생
+        IF @CNT = 0
+        BEGIN    
+            INSERT INTO hns_dp.dbo.TB_ALARM_TEMP
+            ([ALADT], [OBSIDX], [HNSIDX], [BOARDIDX], [CURVAL], [ALAHIHIVAL] ,[ALAGRADE] ,[ALACNT])
+            VALUES
+            (
+                @DT, @OBSIDX, @HNSIDX, 1, @VAL, @HIHIVAL, 2, 1
+            )
+        END
+        ELSE IF @CNT > 1
+        BEGIN    
+            UPDATE hns_dp.dbo.TB_ALARM_TEMP
+            SET ALACNT = @CNT + 1
+            WHERE OBSIDX = @OBSIDX AND BOARDIDX = 1 AND HNSIDX = @HNSIDX AND ALAGRADE = 2 AND REGISTFLAG IS NULL
+        END        
+        ELSE
+        BEGIN    
+            IF @REGISTFLAG IS NULL
+            BEGIN
+                INSERT INTO hns_dp.dbo.TB_ALARM_DATA
+                ([ALADT],[HNSIDX],[OBSIDX],[BOARDIDX],[ALAHIHIVAL],[CURRVAL],[ALACODE])
+                VALUES
+                (
+                    @DT, @HNSIDX, @OBSIDX, 1, @HIHIVAL, @VAL, 2
+                )
+                    
+                UPDATE hns_dp.dbo.TB_ALARM_TEMP
+                SET ALACNT = @CNT + 1, REGISTFLAG = 'Y'
+                WHERE OBSIDX = @OBSIDX AND BOARDIDX = 1 AND HNSIDX = @HNSIDX AND ALAGRADE = 2 AND REGISTFLAG IS NULL
+            END
+        END    
+    END
+    ELSE
+    BEGIN
+        IF (@CNT > 0)
+        BEGIN    
+            UPDATE hns_dp.dbo.TB_ALARM_DATA
+            SET TURNOFF_DT = @DT, TURNOFF_FLAG = 'Y'
+            WHERE OBSIDX = @OBSIDX AND BOARDIDX = 1 AND HNSIDX = @HNSIDX AND ALACODE = 2 AND TURNOFF_FLAG IS NULL
+
+            DELETE 
+            FROM hns_dp.dbo.TB_ALARM_TEMP 
+            WHERE OBSIDX = @OBSIDX AND BOARDIDX = 1 AND HNSIDX = @HNSIDX AND ALAGRADE = 2 AND REGISTFLAG = 'Y'
+        END
+    END
+
+    FETCH NEXT FROM sensor_cursor INTO @DT, @OBSIDX, @HNSIDX, @HIHIVAL, @VAL, @CNT, @REGISTFLAG, @FIX
+END
+
+CLOSE sensor_cursor
+DEALLOCATE sensor_cursor
+END

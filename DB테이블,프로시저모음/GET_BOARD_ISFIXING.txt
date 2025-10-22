@@ -1,0 +1,28 @@
+USE [HNS_DP]
+GO
+/****** Object:  StoredProcedure [dbo].[GET_BOARD_ISFIXING]    Script Date: 2025-10-22 오후 4:33:16 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+ALTER PROCEDURE [dbo].[GET_BOARD_ISFIXING]
+    @obsIdx INT,
+    @boardIdx INT,
+    @isFixing BIT OUTPUT
+AS
+BEGIN
+    DECLARE @cnt0 INT, @cnt1 INT;
+
+    SELECT
+        @cnt0 = COUNT(*) 
+    FROM TB_HNS
+    WHERE OBSIDX = @obsIdx AND BOARDIDX = @boardIdx AND INSPECTIONFLAG = '0';
+
+    SELECT
+        @cnt1 = COUNT(*) 
+    FROM TB_HNS
+    WHERE OBSIDX = @obsIdx AND BOARDIDX = @boardIdx AND INSPECTIONFLAG = '1';
+
+    SET @isFixing = CASE WHEN @cnt1 >= @cnt0 THEN 1 ELSE 0 END;
+END;
+;
