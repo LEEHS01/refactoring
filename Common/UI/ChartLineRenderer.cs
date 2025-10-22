@@ -1,5 +1,4 @@
-﻿// Assets/Scripts_refactoring/Common/UI/ChartLineRenderer.cs
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 using System;
@@ -16,13 +15,16 @@ namespace Common.UI
         [Header("Line Settings")]
         [SerializeField] private float lineThickness = 2f;
         [SerializeField] private Color lineColor = Color.cyan;
+
+        [Header("Point Settings")]  // ⭐ 추가
+        [SerializeField][Range(0.1f, 2f)] private float dotScale = 0.5f;  // ⭐ 추가
         #endregion
 
         #region Private Fields
         private List<Transform> chartPoints = new List<Transform>();
         private List<Vector2> linePoints = new List<Vector2>();
         private GameObject pointPrefab;
-        private RectTransform chartBoundsArea; // View에서 설정받음
+        private RectTransform chartBoundsArea;
         #endregion
 
         #region Properties
@@ -58,9 +60,6 @@ namespace Common.UI
         #endregion
 
         #region Public Methods
-        /// <summary>
-        /// 차트 영역 설정 (View에서 호출)
-        /// </summary>
         public void Initialize(RectTransform chartBounds)
         {
             if (chartBounds == null)
@@ -73,9 +72,6 @@ namespace Common.UI
             Debug.Log($"[ChartLineRenderer] 초기화 완료: {chartBounds.name}");
         }
 
-        /// <summary>
-        /// 정규화된 값들(0~1)로 차트 업데이트
-        /// </summary>
         public void UpdateChart(List<float> normalizedValues)
         {
             if (chartBoundsArea == null)
@@ -98,25 +94,16 @@ namespace Common.UI
                 return;
             }
 
-            // 점 개수 조정
             if (chartPoints.Count != normalizedValues.Count)
             {
                 SetPointCount(normalizedValues.Count);
             }
 
-            // 점 위치 계산 및 배치
             UpdatePointPositions(normalizedValues, bounds);
-
-            // 라인 포인트 업데이트
             UpdateLinePoints();
-
-            // 메쉬 갱신
             SetVerticesDirty();
         }
 
-        /// <summary>
-        /// 차트 초기화
-        /// </summary>
         public void ClearChart()
         {
             ClearAllPoints();
@@ -124,9 +111,6 @@ namespace Common.UI
             SetVerticesDirty();
         }
 
-        /// <summary>
-        /// 차트 포인트 리스트 반환 (툴팁용)
-        /// </summary>
         public List<Transform> GetChartPoints()
         {
             return new List<Transform>(chartPoints);
@@ -163,7 +147,7 @@ namespace Common.UI
             {
                 GameObject newPoint = Instantiate(pointPrefab, transform);
                 newPoint.name = $"Point_{i}";
-                newPoint.transform.localScale = Vector3.one * 0.5f;
+                newPoint.transform.localScale = Vector3.one * dotScale;  // ⭐ 수정
                 newPoint.SetActive(true);
 
                 float xRatio = (count > 1) ? (float)i / (count - 1) : 1.5f;
@@ -195,7 +179,7 @@ namespace Common.UI
             img.color = lineColor;
 
             RectTransform rect = point.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(16, 16);
+            rect.sizeDelta = new Vector2(8, 8);
 
             return point;
         }

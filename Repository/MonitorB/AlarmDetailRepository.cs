@@ -41,9 +41,9 @@ namespace Repositories.MonitorB
                 var sensors = await GetSensorSettingsAsync(obsId);
                 Debug.Log($"🔥 센서 설정 조회 완료: {sensors.Count}개");
 
-                var startTime = alarmTime.AddHours(-12);
-                var chartData = await GetChartDataAsync(obsId, startTime, alarmTime);
-                Debug.Log($"🔥 차트 데이터 조회 완료: {chartData.Count}개");
+                // ⭐ 수정: 알람 시각만 전달 (내부에서 10분 단위로 내림)
+                var chartData = await GetChartDataAsync(obsId, alarmTime);
+                Debug.Log($"🔥 10분 단위 데이터 조회 완료: {chartData.Count}개");
 
                 foreach (var sensor in sensors)
                 {
@@ -111,64 +111,92 @@ namespace Repositories.MonitorB
         }
 
         private async Task<List<ChartDataPoint>> GetChartDataAsync(
-            int obsId,
-            DateTime startTime,
-            DateTime endTime)
+    int obsId,
+    DateTime alarmTime)
         {
+            // ⭐ 알람 시각을 10분 단위로 내림
+            var endTime = new DateTime(
+                alarmTime.Year,
+                alarmTime.Month,
+                alarmTime.Day,
+                alarmTime.Hour,
+                (alarmTime.Minute / 10) * 10,
+                0);
+
+            // ⭐ 12시간 전부터
+            var startTime = endTime.AddHours(-12);
+
             var query = $@"
-        EXEC GET_CHARTVALUE 
-            @obsidx = {obsId},
-            @start_dt = '{startTime:yyyyMMddHHmmss}',
-            @end_dt = '{endTime:yyyyMMddHHmmss}',
-            @interval = 10";
+        SELECT 
+            BOARDIDX,
+            HNSIDX,
+            OBSDT,
+            ISNULL(VAL, 0) AS VAL
+        FROM TB_HNS_DATA
+        WHERE OBSIDX = {obsId}
+          AND OBSDT >= '{startTime:yyyyMMddHHmmss}'
+          AND OBSDT <= '{endTime:yyyyMMddHHmmss}'
+        ORDER BY OBSDT ASC";  // ⭐ 시간 순서대로
+
+            Debug.Log($"🔍 차트 데이터 조회: {startTime:yyyy-MM-dd HH:mm} ~ {endTime:yyyy-MM-dd HH:mm}");
 
             var result = await DatabaseService.Instance.ExecuteQueryAsync(query);
 
             if (string.IsNullOrEmpty(result))
             {
-                Debug.LogWarning($"차트 데이터가 없습니다. ObsId={obsId}");
+                Debug.LogWarning($"⚠️ 차트 데이터가 없습니다. ObsId={obsId}");
                 return new List<ChartDataPoint>();
             }
 
             var wrappedJson = "{\"items\":" + result + "}";
             var response = JsonUtility.FromJson<ChartDataResponse>(wrappedJson);
 
-            return response.items.Select(item => new ChartDataPoint
+            var dataPoints = response.items.Select(item => new ChartDataPoint
             {
                 BoardId = item.BOARDIDX,
                 HnsId = item.HNSIDX,
                 ObsDt = DateTime.ParseExact(item.OBSDT, "yyyyMMddHHmmss", null),
                 Val = item.VAL
             }).ToList();
+
+            Debug.Log($"✅ 조회된 차트 데이터: {dataPoints.Count}개");
+            return dataPoints;
         }
 
         private AlarmSensorData CreateSensorData(
-            SensorSetting setting,
-            List<ChartDataPoint> chartData,
-            int alarmBoardId,
-            int alarmHnsId,
-            float? alarmCurrVal)
+    SensorSetting setting,
+    List<ChartDataPoint> chartData,
+    int alarmBoardId,
+    int alarmHnsId,
+    float? alarmCurrVal)
         {
             var sensorChartData = chartData
                 .Where(d => d.BoardId == setting.BoardId && d.HnsId == setting.HnsId)
                 .OrderBy(d => d.ObsDt)
                 .ToList();
 
+            Debug.Log($"📊 {setting.SensorName}: 차트 데이터 {sensorChartData.Count}개");
+
             var chartValues = sensorChartData.Select(d => d.Val).ToList();
             var chartTimes = sensorChartData.Select(d => d.ObsDt).ToList();
 
             float currentValue = 0f;
-            if (chartValues.Count > 0)
+
+            if (setting.BoardId == alarmBoardId &&
+                setting.HnsId == alarmHnsId &&
+                alarmCurrVal.HasValue)
+            {
+                currentValue = alarmCurrVal.Value;
+                Debug.Log($"🎯 알람 센서 {setting.SensorName}: CURRVAL={currentValue}");
+            }
+            else if (chartValues.Count > 0)
             {
                 currentValue = chartValues.Last();
-
-                if (setting.BoardId == alarmBoardId &&
-                    setting.HnsId == alarmHnsId &&
-                    alarmCurrVal.HasValue)
-                {
-                    chartValues[chartValues.Count - 1] = alarmCurrVal.Value;
-                    currentValue = alarmCurrVal.Value;
-                }
+                Debug.Log($"📊 {setting.SensorName}: 차트값={currentValue}");
+            }
+            else
+            {
+                Debug.LogWarning($"⚠️ {setting.SensorName}: 데이터 없음");
             }
 
             var status = DetermineSensorStatus(currentValue,
