@@ -14,6 +14,8 @@ namespace Models.MonitorB
         [SerializeField] private float VAL;
         [SerializeField] private string UNIT;
         [SerializeField] private string INSPECTIONFLAG;
+        [SerializeField] private float HIHI;
+        [SerializeField] private float HI;
 
         // ⭐ 프로퍼티로 접근 (소문자)
         public int boardIdx => BOARDIDX;
@@ -23,6 +25,8 @@ namespace Models.MonitorB
         public float currentValue => VAL;
         public string unit => UNIT;
         public bool isInspection => INSPECTIONFLAG == "Y";
+        public float criticalThreshold => HIHI;
+        public float warningThreshold => HI;
 
         /// <summary>
         /// 포맷팅된 값 반환

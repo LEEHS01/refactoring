@@ -1,12 +1,12 @@
-﻿using UnityEngine;
+﻿// Common/UI/ChartLineRenderer.cs
+using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
-using System;
 
 namespace Common.UI
 {
     /// <summary>
-    /// 차트 라인을 그리는 커스텀 UI 컴포넌트 (순수 렌더링만 담당)
+    /// 최적화된 차트 라인 렌더러
     /// </summary>
     [RequireComponent(typeof(CanvasRenderer))]
     public class ChartLineRenderer : MaskableGraphic
@@ -16,8 +16,8 @@ namespace Common.UI
         [SerializeField] private float lineThickness = 2f;
         [SerializeField] private Color lineColor = Color.cyan;
 
-        [Header("Point Settings")]  // ⭐ 추가
-        [SerializeField][Range(0.1f, 2f)] private float dotScale = 0.5f;  // ⭐ 추가
+        [Header("Point Settings")]
+        [SerializeField][Range(0.1f, 2f)] private float dotScale = 0.5f;
         #endregion
 
         #region Private Fields
@@ -25,6 +25,10 @@ namespace Common.UI
         private List<Vector2> linePoints = new List<Vector2>();
         private GameObject pointPrefab;
         private RectTransform chartBoundsArea;
+
+        // ⭐ 오브젝트 풀
+        private Queue<GameObject> pointPool = new Queue<GameObject>();
+        private const int INITIAL_POOL_SIZE = 100;
         #endregion
 
         #region Properties
@@ -53,10 +57,7 @@ namespace Common.UI
             DrawLines(vh, linePoints);
         }
 
-        void Update()
-        {
-            SetVerticesDirty();
-        }
+        // ⭐ Update() 제거! - 불필요한 메시 재생성 방지
         #endregion
 
         #region Public Methods
@@ -69,6 +70,10 @@ namespace Common.UI
             }
 
             chartBoundsArea = chartBounds;
+
+            // ⭐ 오브젝트 풀 초기화
+            InitializePool();
+
             Debug.Log($"[ChartLineRenderer] 초기화 완료: {chartBounds.name}");
         }
 
@@ -94,19 +99,18 @@ namespace Common.UI
                 return;
             }
 
-            if (chartPoints.Count != normalizedValues.Count)
-            {
-                SetPointCount(normalizedValues.Count);
-            }
-
+            // ⭐ 포인트 재사용
+            SetPointCount(normalizedValues.Count);
             UpdatePointPositions(normalizedValues, bounds);
             UpdateLinePoints();
+
+            // ⭐ 데이터 변경 시에만 메시 재생성
             SetVerticesDirty();
         }
 
         public void ClearChart()
         {
-            ClearAllPoints();
+            ReturnAllPointsToPool();
             linePoints.Clear();
             SetVerticesDirty();
         }
@@ -115,6 +119,76 @@ namespace Common.UI
         {
             return new List<Transform>(chartPoints);
         }
+        #endregion
+
+        #region Private Methods - Object Pooling
+
+        /// <summary>
+        /// 오브젝트 풀 초기화
+        /// </summary>
+        private void InitializePool()
+        {
+            if (pointPrefab == null)
+            {
+                pointPrefab = CreateDefaultPointPrefab();
+            }
+
+            for (int i = 0; i < INITIAL_POOL_SIZE; i++)
+            {
+                GameObject point = Instantiate(pointPrefab, transform);
+                point.SetActive(false);
+                pointPool.Enqueue(point);
+            }
+        }
+
+        /// <summary>
+        /// 풀에서 포인트 가져오기
+        /// </summary>
+        private GameObject GetPointFromPool()
+        {
+            GameObject point;
+
+            if (pointPool.Count > 0)
+            {
+                point = pointPool.Dequeue();
+            }
+            else
+            {
+                // 풀이 비었으면 새로 생성
+                point = Instantiate(pointPrefab, transform);
+            }
+
+            point.SetActive(true);
+            return point;
+        }
+
+        /// <summary>
+        /// 포인트를 풀에 반환
+        /// </summary>
+        private void ReturnPointToPool(GameObject point)
+        {
+            if (point != null)
+            {
+                point.SetActive(false);
+                pointPool.Enqueue(point);
+            }
+        }
+
+        /// <summary>
+        /// 모든 포인트를 풀에 반환
+        /// </summary>
+        private void ReturnAllPointsToPool()
+        {
+            foreach (var point in chartPoints)
+            {
+                if (point != null)
+                {
+                    ReturnPointToPool(point.gameObject);
+                }
+            }
+            chartPoints.Clear();
+        }
+
         #endregion
 
         #region Private Methods - Chart Bounds
@@ -133,42 +207,39 @@ namespace Common.UI
         #endregion
 
         #region Private Methods - Point Management
+
         private void SetPointCount(int count)
         {
-            ClearAllPoints();
-
-            if (pointPrefab == null)
+            // 현재 포인트 수와 같으면 재사용
+            if (chartPoints.Count == count)
             {
-                pointPrefab = CreateDefaultPointPrefab();
+                return;
             }
 
-            var bounds = GetChartBounds();
-            for (int i = 0; i < count; i++)
+            // 더 많으면 여분 반환
+            while (chartPoints.Count > count)
             {
-                GameObject newPoint = Instantiate(pointPrefab, transform);
-                newPoint.name = $"Point_{i}";
-                newPoint.transform.localScale = Vector3.one * dotScale;  // ⭐ 수정
-                newPoint.SetActive(true);
+                int lastIndex = chartPoints.Count - 1;
+                ReturnPointToPool(chartPoints[lastIndex].gameObject);
+                chartPoints.RemoveAt(lastIndex);
+            }
 
-                float xRatio = (count > 1) ? (float)i / (count - 1) : 1.5f;
+            // 부족하면 풀에서 가져오기
+            var bounds = GetChartBounds();
+            while (chartPoints.Count < count)
+            {
+                GameObject newPoint = GetPointFromPool();
+                newPoint.name = $"Point_{chartPoints.Count}";
+                newPoint.transform.localScale = Vector3.one * dotScale;
+
+                int i = chartPoints.Count;
+                float xRatio = (count > 1) ? (float)i / (count - 1) : 0.5f;
                 float worldX = Mathf.Lerp(bounds.min.x, bounds.max.x, xRatio);
                 float worldY = bounds.min.y;
                 newPoint.transform.position = new Vector3(worldX, worldY, 0);
 
                 chartPoints.Add(newPoint.transform);
             }
-        }
-
-        private void ClearAllPoints()
-        {
-            foreach (var point in chartPoints)
-            {
-                if (point != null)
-                {
-                    Destroy(point.gameObject);
-                }
-            }
-            chartPoints.Clear();
         }
 
         private GameObject CreateDefaultPointPrefab()
@@ -181,6 +252,7 @@ namespace Common.UI
             RectTransform rect = point.GetComponent<RectTransform>();
             rect.sizeDelta = new Vector2(8, 8);
 
+            point.SetActive(false);
             return point;
         }
 
@@ -259,6 +331,24 @@ namespace Common.UI
 
             vh.AddTriangle(vertexStartIndex + 0, vertexStartIndex + 1, vertexStartIndex + 2);
             vh.AddTriangle(vertexStartIndex + 2, vertexStartIndex + 3, vertexStartIndex + 0);
+        }
+
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+
+            // ⭐ 정리
+            ReturnAllPointsToPool();
+
+            // 풀의 모든 오브젝트 파괴
+            while (pointPool.Count > 0)
+            {
+                GameObject point = pointPool.Dequeue();
+                if (point != null)
+                {
+                    Destroy(point);
+                }
+            }
         }
         #endregion
     }

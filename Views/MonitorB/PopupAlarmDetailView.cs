@@ -21,6 +21,12 @@ namespace Views.MonitorB
         [SerializeField] private Transform lstQuality;
         [SerializeField] private Transform lstChemical;
 
+        [Header("Popups")]
+        [SerializeField] private PopUpToxinDetail2View popUpToxinDetail2;
+
+        private int currentObsId;
+        private System.DateTime currentAlarmTime;
+
         private void Start()
         {
             if (btnClose != null)
@@ -69,6 +75,9 @@ namespace Views.MonitorB
             string obsName,
             string areaName)
         {
+            currentObsId = obsId;
+            currentAlarmTime = alarmTime;
+
             gameObject.SetActive(true);
 
             if (txtTitle != null)
@@ -86,15 +95,15 @@ namespace Views.MonitorB
 
         private void OnDataLoaded(AlarmDetailData data)
         {
-            Debug.Log($"🔥 OnDataLoaded 호출됨!");
+            Debug.Log($"OnDataLoaded 호출됨!");
 
             var toxinSensors = data.ToxinSensors.Where(s => s.IsActive).ToList();
             var qualitySensors = data.QualitySensors.Where(s => s.IsActive).ToList();
             var chemicalSensors = data.ChemicalSensors.Where(s => s.IsActive).ToList();
 
-            Debug.Log($"🔥 생태독성: {toxinSensors.Count}개");
-            Debug.Log($"🔥 수질: {qualitySensors.Count}개");
-            Debug.Log($"🔥 법정HNS: {chemicalSensors.Count}개");
+            Debug.Log($"생태독성: {toxinSensors.Count}개");
+            Debug.Log($"수질: {qualitySensors.Count}개");
+            Debug.Log($"법정HNS: {chemicalSensors.Count}개");
 
             FillExistingItems(toxinSensors, lstToxin);
             FillExistingItems(qualitySensors, lstQuality);
@@ -118,7 +127,7 @@ namespace Views.MonitorB
         {
             if (container == null)
             {
-                Debug.LogError($"❌ Container가 null!");
+                Debug.LogError($"Container가 null!");
                 return;
             }
 
@@ -135,7 +144,7 @@ namespace Views.MonitorB
                 }
             }
 
-            Debug.Log($"🔥 {container.name}: 기존 아이템 {items.Count}개, 센서 데이터 {sensors.Count}개");
+            Debug.Log($" {container.name}: 기존 아이템 {items.Count}개, 센서 데이터 {sensors.Count}개");
 
             for (int i = 0; i < items.Count; i++)
             {
@@ -143,18 +152,20 @@ namespace Views.MonitorB
                 {
                     items[i].gameObject.SetActive(true);
                     items[i].SetData(sensors[i]);
-                    Debug.Log($"  ✅ [{i}] {sensors[i].SensorName} 데이터 설정");
+                    items[i].OnItemClicked -= OnSensorItemClicked;
+                    items[i].OnItemClicked += OnSensorItemClicked;
+                    Debug.Log($"[{i}] {sensors[i].SensorName} 데이터 설정");
                 }
                 else
                 {
                     items[i].gameObject.SetActive(false);
-                    Debug.Log($"  ⏭️ [{i}] 아이템 비활성화");
+                    Debug.Log($" [{i}] 아이템 비활성화");
                 }
             }
 
             if (sensors.Count > items.Count)
             {
-                Debug.LogWarning($"⚠️ {container.name}: 센서 {sensors.Count}개인데 아이템은 {items.Count}개! 부족!");
+                Debug.LogWarning($"{container.name}: 센서 {sensors.Count}개인데 아이템은 {items.Count}개! 부족!");
             }
         }
 
@@ -162,6 +173,22 @@ namespace Views.MonitorB
         {
             Debug.LogError($"알람 상세 정보 로드 실패: {error}");
         }
+
+        // 추가: 센서 아이템 클릭 핸들러
+        private void OnSensorItemClicked(int boardId, int hnsId, int unused)
+        {
+            Debug.Log($"[PopupAlarmDetailView] 센서 클릭: Board={boardId}, HNS={hnsId}");
+
+            if (popUpToxinDetail2 != null)
+            {
+                popUpToxinDetail2.OpenPopup(currentObsId, boardId, hnsId);
+            }
+            else
+            {
+                Debug.LogError("[PopupAlarmDetailView] PopUpToxinDetail2가 연결되지 않았습니다!");
+            }
+        }
+
 
         public void ClosePopup()
         {

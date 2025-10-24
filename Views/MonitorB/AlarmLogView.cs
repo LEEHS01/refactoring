@@ -1,4 +1,5 @@
 ﻿using Core;
+using Models;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
@@ -16,6 +17,7 @@ public class AlarmLogView : BaseView
     [Header("Connected Views")]
     [SerializeField] private SensorView monitorBSensorView;
     [SerializeField] private PopupAlarmDetailView popupAlarmDetail;
+    [SerializeField] private SensorChartView sensorChartView;
 
     [Header("Sort UI - Containers")]
     [SerializeField] private GameObject sortTimeContainer;
@@ -591,55 +593,78 @@ public class AlarmLogView : BaseView
     /// <summary>
     /// 알람 아이템 클릭 시 - 해당 관측소의 센서 데이터 표시
     /// </summary>
-    private void OnAlarmItemClicked(Models.AlarmLogData alarmData)
+    private void OnAlarmItemClicked(AlarmLogData alarmData)
     {
-        LogInfo($"알람 클릭: {alarmData.obsName} (obsId={alarmData.obsId})");
+        if (alarmData == null)
+        {
+            LogError("AlarmLogData가 null입니다!");
+            return;
+        }
 
-        // ⭐ FindFirstObjectByType 대신 직접 참조 사용
+        LogInfo($"알람 로그 클릭: {alarmData.areaName} - {alarmData.obsName}");
+
+        // ⭐ 팝업 열기
         if (popupAlarmDetail != null)
         {
             popupAlarmDetail.OpenPopup(
-                obsId: alarmData.obsId,
-                alarmBoardId: alarmData.boardId,
-                alarmHnsId: alarmData.sensorId,
-                alarmTime: alarmData.time,
-                alarmCurrVal: alarmData.alarmValue,
-                obsName: alarmData.obsName,
-                areaName: alarmData.areaName
+                alarmData.obsId,
+                alarmData.boardId,
+                alarmData.sensorId,
+                alarmData.time,
+                alarmData.alarmValue,
+                alarmData.obsName,
+                alarmData.areaName
             );
-
-            LogInfo($"알람 상세 팝업 열림");
         }
         else
         {
-            LogError("PopupAlarmDetailView가 연결되지 않았습니다! Inspector에서 연결하세요.");
+            LogError("PopupAlarmDetail이 연결되지 않았습니다! Inspector에서 연결하세요.");
         }
 
-        // 기존 센서 뷰 로드 코드
+        // 센서 뷰 로드
         if (monitorBSensorView == null)
         {
             LogError("MonitorBSensorView가 연결되지 않았습니다! Inspector에서 연결하세요.");
             return;
         }
 
-        if (UiManager.Instance?.modelProvider != null)
+        // MVVM 패턴: ViewModel 통해 데이터 로드
+        monitorBSensorView.LoadObservatory(
+            alarmData.obsId,
+            alarmData.areaName,
+            alarmData.obsName
+        );
+
+        LogInfo($"센서 데이터 로드 요청: {alarmData.areaName} - {alarmData.obsName}");
+
+        // ⭐ 차트 뷰에 독성도 자동 로드
+        LoadDefaultToxicityChart(alarmData.obsId);
+    }
+
+    /// <summary>
+    /// 기본 차트 로드: 독성도 (Board 1, HNS 1)
+    /// </summary>
+    private void LoadDefaultToxicityChart(int obsId)
+    {
+        if (sensorChartView == null)
         {
-            var obs = UiManager.Instance.modelProvider.GetObs(alarmData.obsId);
-            if (obs != null)
-            {
-                monitorBSensorView.LoadObservatory(alarmData.obsId, obs.areaName, obs.obsName);
-                LogInfo($"센서 데이터 로드 요청: {obs.areaName} - {obs.obsName}");
-            }
-            else
-            {
-                LogError($"관측소 정보를 찾을 수 없음: obsId={alarmData.obsId}");
-            }
+            LogWarning("SensorChartView가 연결되지 않았습니다.");
+            return;
         }
-        else
-        {
-            LogWarning("ModelProvider가 없습니다. 임시 데이터로 로드합니다.");
-            monitorBSensorView.LoadObservatory(alarmData.obsId, alarmData.areaName, alarmData.obsName);
-        }
+
+        // ⭐ 독성도: Board 1, HNS 1
+        const int DEFAULT_BOARD_ID = 1;
+        const int DEFAULT_HNS_ID = 1;
+        const string DEFAULT_SENSOR_NAME = "독성도";
+
+        LogInfo($"기본 차트 로드: {DEFAULT_SENSOR_NAME} (obsId={obsId})");
+
+        sensorChartView.LoadSensorChart(
+            obsId,
+            DEFAULT_BOARD_ID,
+            DEFAULT_HNS_ID,
+            DEFAULT_SENSOR_NAME
+        );
     }
 
     #endregion

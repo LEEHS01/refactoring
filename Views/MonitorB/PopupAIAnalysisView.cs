@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿// Views/MonitorB/PopupAIAnalysisView.cs
+using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using ViewModels.MonitorB;
@@ -18,12 +19,20 @@ namespace Views.MonitorB
         [SerializeField] private ChartBarView chartMeasured;
         [SerializeField] private ChartBarView chartDifference;
 
+        // ⭐ 현재 센서 정보 저장
+        private int currentObsId;
+        private int currentBoardId;
+        private int currentHnsId;
+
         private void Start()
         {
             if (btnClose != null)
             {
                 btnClose.onClick.AddListener(ClosePopup);
             }
+
+            // 3개 차트 모두 초기화
+            InitializeCharts();
 
             ConnectToViewModel();
 
@@ -39,6 +48,27 @@ namespace Views.MonitorB
             {
                 btnClose.onClick.RemoveListener(ClosePopup);
             }
+        }
+
+        // ⭐ 차트 초기화
+        private void InitializeCharts()
+        {
+            if (chartAI != null)
+            {
+                chartAI.Initialize();
+            }
+
+            if (chartMeasured != null)
+            {
+                chartMeasured.Initialize();
+            }
+
+            if (chartDifference != null)
+            {
+                chartDifference.Initialize();
+            }
+
+            Debug.Log("[PopupAIAnalysisView] 3개 차트 초기화 완료");
         }
 
         private void ConnectToViewModel()
@@ -61,17 +91,19 @@ namespace Views.MonitorB
 
         public void OpenPopup(int obsId, int boardId, int hnsId)
         {
+            // 현재 센서 정보 저장
+            currentObsId = obsId;
+            currentBoardId = boardId;
+            currentHnsId = hnsId;
+
             Debug.Log($"[PopupAIAnalysisView] 팝업 열기: obs={obsId}, board={boardId}, hns={hnsId}");
 
             gameObject.SetActive(true);
 
-            // 센서명 표시 (임시)
-            if (txtSensorName != null)
-            {
-                txtSensorName.text = $"센서 {hnsId}";
-            }
+            // 센서명 가져오기 (임시 → 실제)
+            LoadSensorName();
 
-            // ⭐ 시간 범위 초기화 (로딩 중)
+            // 시간 범위 초기화 (로딩 중)
             if (txtTimeRange != null)
             {
                 txtTimeRange.text = "조회 중...";
@@ -81,17 +113,45 @@ namespace Views.MonitorB
             AIAnalysisViewModel.Instance.LoadAIAnalysis(obsId, boardId, hnsId);
         }
 
-        // ⭐ 실제 시간 정보를 받아서 표시
+        // ⭐ 센서명 가져오기
+        private void LoadSensorName()
+        {
+            if (txtSensorName == null) return;
+
+            // SensorMonitorViewModel에서 센서 정보 찾기
+            if (ViewModels.MonitorB.SensorMonitorViewModel.Instance != null)
+            {
+                var allSensors = ViewModels.MonitorB.SensorMonitorViewModel.Instance.AllSensors;
+                var sensor = allSensors.Find(s =>
+                    s.boardIdx == currentBoardId &&
+                    s.hnsIdx == currentHnsId
+                );
+
+                if (sensor != null)
+                {
+                    txtSensorName.text = sensor.sensorName;
+                }
+                else
+                {
+                    txtSensorName.text = $"센서 {currentHnsId}";
+                }
+            }
+            else
+            {
+                txtSensorName.text = $"센서 {currentHnsId}";
+            }
+        }
+
         private void OnDataLoaded(
             Models.MonitorB.ProcessedChartData aiData,
             Models.MonitorB.ProcessedChartData measuredData,
             Models.MonitorB.ProcessedChartData differenceData,
-            DateTime startTime,    // ⭐ 실제 시작 시간
-            DateTime endTime)      // ⭐ 실제 종료 시간
+            DateTime startTime,
+            DateTime endTime)
         {
             Debug.Log($"[PopupAIAnalysisView] 데이터 로드 완료 - 시간: {startTime:yyyy-MM-dd HH:mm} ~ {endTime:yyyy-MM-dd HH:mm}");
 
-            // ⭐ 실제 시간 범위 표시
+            // 시간 범위 표시
             UpdateTimeRangeLabel(startTime, endTime);
 
             // AI값 차트
@@ -128,7 +188,6 @@ namespace Views.MonitorB
             }
         }
 
-        // ⭐ 시간 범위 표시 업데이트
         private void UpdateTimeRangeLabel(DateTime startTime, DateTime endTime)
         {
             if (txtTimeRange == null) return;
@@ -136,12 +195,10 @@ namespace Views.MonitorB
             // 날짜가 같으면 날짜 한 번만, 다르면 둘 다 표시
             if (startTime.Date == endTime.Date)
             {
-                // 같은 날: "2025-10-14  04:40 ~ 16:40"
                 txtTimeRange.text = $"AI 분석 조회 시점: {startTime:yyyy-MM-dd}  {startTime:HH:mm} ~ {endTime:HH:mm}";
             }
             else
             {
-                // 다른 날: "2025-10-14 04:40 ~ 2025-10-15 16:40"
                 txtTimeRange.text = $"AI 분석 조회 시점: {startTime:yyyy-MM-dd HH:mm} ~ {endTime:yyyy-MM-dd HH:mm}";
             }
 
@@ -152,7 +209,6 @@ namespace Views.MonitorB
         {
             Debug.LogError($"[PopupAIAnalysisView] 에러: {errorMessage}");
 
-            // ⭐ 에러 시 시간 범위도 에러 표시
             if (txtTimeRange != null)
             {
                 txtTimeRange.text = "데이터 조회 실패";

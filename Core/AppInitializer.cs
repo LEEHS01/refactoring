@@ -59,6 +59,7 @@ public class AppInitializer : MonoBehaviour
         CreateViewModel<SensorChartViewModel>("SensorChartViewModel");
         CreateViewModel<AIAnalysisViewModel>("AIAnalysisViewModel");
         CreateViewModel<AlarmDetailViewModel>("AlarmDetailViewModel");
+        CreateViewModel<PopUpToxinDetail2ViewModel>("PopUpToxinDetail2ViewModel");
 
         // 모든 ViewModel이 준비될 때까지 대기
         while (AlarmLogViewModel.Instance == null ||
@@ -66,7 +67,8 @@ public class AppInitializer : MonoBehaviour
                SensorMonitorViewModel.Instance == null ||
                SensorChartViewModel.Instance == null ||
                AIAnalysisViewModel.Instance == null ||
-               AlarmDetailViewModel.Instance == null)
+               AlarmDetailViewModel.Instance == null ||
+               PopUpToxinDetail2ViewModel.Instance == null)
         {
             yield return null;
         }
@@ -75,6 +77,7 @@ public class AppInitializer : MonoBehaviour
         Debug.Log($"  - AlarmLogViewModel: {AlarmLogViewModel.Instance != null}");
         Debug.Log($"  - TimeViewModel: {TimeViewModel.Instance != null}");
         Debug.Log($"  - SensorMonitorViewModel: {SensorMonitorViewModel.Instance != null}");
+        Debug.Log($"  - PopUpToxinDetail2ViewModel: {PopUpToxinDetail2ViewModel.Instance != null}");
     }
 
     /// <summary>
