@@ -1,4 +1,5 @@
-﻿using UMP;
+﻿using Onthesys;
+using UMP;
 using UnityEngine;
 using UnityEngine.Events;
 using ViewModels.MonitorB;
@@ -20,7 +21,19 @@ namespace Views.MonitorB
         [Header("Close Button")]
         [SerializeField] private UnityEngine.UI.Button closeButton;
 
+        // 팝업 버튼들
+        [Header("Popup Buttons")]
+        [SerializeField] private UnityEngine.UI.Button popupButtonA;
+        [SerializeField] private UnityEngine.UI.Button popupButtonB;
+
+        // ⭐ 추가: 팝업 창들
+        [Header("Popup Windows")]
+        [SerializeField] private GameObject popupVideoA;
+        [SerializeField] private GameObject popupVideoB;
+
+
         private CCTVViewModel viewModel;
+        private int currentObsId = -1;
 
         private void Awake()
         {
@@ -44,6 +57,21 @@ namespace Views.MonitorB
                     btnPauseB = buttonsB.Find("Btn_Pause")?.gameObject;
                 }
             }
+
+            // ⭐ 팝업 버튼 자동 찾기
+            if (popupButtonA == null)
+            {
+                var popupBtnA = transform.Find("Video_Player A/PopUP_Btn");
+                if (popupBtnA != null)
+                    popupButtonA = popupBtnA.GetComponent<UnityEngine.UI.Button>();
+            }
+
+            if (popupButtonB == null)
+            {
+                var popupBtnB = transform.Find("Video_Player B/PopUP_Btn");
+                if (popupBtnB != null)
+                    popupButtonB = popupBtnB.GetComponent<UnityEngine.UI.Button>();
+            }
         }
 
         private void OnEnable()
@@ -61,8 +89,74 @@ namespace Views.MonitorB
 
             SetupCloseButton();
 
+            SetupPopupButtons();
+
             Debug.Log("[CCTVPanelView] 초기화 완료");
         }
+
+        // ⭐ 새로 추가: 팝업 버튼 이벤트 연결
+        private void SetupPopupButtons()
+        {
+            if (popupButtonA != null)
+            {
+                popupButtonA.onClick.RemoveAllListeners();
+                popupButtonA.onClick.AddListener(OnClickPopupA);
+            }
+
+            if (popupButtonB != null)
+            {
+                popupButtonB.onClick.RemoveAllListeners();
+                popupButtonB.onClick.AddListener(OnClickPopupB);
+            }
+        }
+
+        // ⭐ Popup A 열기
+        private void OnClickPopupA()
+        {
+            if (popupVideoA == null)
+            {
+                Debug.LogError("[CCTVPanelView] PopupVideoA가 할당되지 않았습니다!");
+                return;
+            }
+
+            Debug.Log("[CCTVPanelView] PopupVideoA 열기");
+            popupVideoA.SetActive(true);
+
+            var popupView = popupVideoA.GetComponent<PopupCCTVView>();
+            if (popupView != null)
+            {
+                popupView.LoadCCTV(currentObsId, CCTVType.VideoA);
+            }
+        }
+
+        // ⭐ Popup B 열기
+        private void OnClickPopupB()
+        {
+            if (popupVideoB == null)
+            {
+                Debug.LogError("[CCTVPanelView] PopupVideoB가 할당되지 않았습니다!");
+                return;
+            }
+
+            Debug.Log("[CCTVPanelView] PopupVideoB 열기");
+            popupVideoB.SetActive(true);
+
+            var popupView = popupVideoB.GetComponent<PopupCCTVView>();
+            if (popupView != null)
+            {
+                popupView.LoadCCTV(currentObsId, CCTVType.VideoB);
+            }
+        }
+
+        public void LoadCCTV(int obsId)
+        {
+            Debug.Log($"[CCTVPanelView] CCTV 로드 요청: {obsId}");
+            currentObsId = obsId;  // ⭐ 저장
+            ResetMediaPlayers();
+            ResetButtonStates();
+            viewModel?.LoadCCTVUrls(obsId);
+        }
+
 
         /// <summary>
         /// MediaPlayer 컴포넌트 완전 초기화
@@ -117,16 +211,6 @@ namespace Views.MonitorB
             }
         }
 
-        public void LoadCCTV(int obsId)
-        {
-            Debug.Log($"[CCTVPanelView] CCTV 로드 요청: {obsId}");
-
-            // 로드 전에도 한 번 더 초기화 (안전장치)
-            ResetMediaPlayers();
-            ResetButtonStates();
-
-            viewModel?.LoadCCTVUrls(obsId);
-        }
 
         private void OnCCTVUrlsLoaded(string video1Url, string video2Url)
         {
