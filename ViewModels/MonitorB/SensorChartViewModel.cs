@@ -15,7 +15,8 @@ namespace ViewModels.MonitorB
         public event Action<ChartData> OnChartDataLoaded;
         public event Action<string> OnError;
 
-        private ChartData currentChartData;
+        public ChartData currentChartData { get; private set; }
+
         private int currentBoardId = -1;
         private int currentHnsId = -1;
 

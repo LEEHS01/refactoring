@@ -125,7 +125,16 @@ namespace Repositories.MonitorB
 
                 Debug.Log($"[AIAnalysisRepository] 데이터 처리 완료 - {aiValues.Count}개");
                 Debug.Log($"[AIAnalysisRepository] 시간 범위: {actualStartTime:yyyy-MM-dd HH:mm} ~ {actualEndTime:yyyy-MM-dd HH:mm}");
+                /*Debug.Log($"[AIAnalysisRepository] 쿼리 결과 길이: {result.Length}자");
+                Debug.Log($"[AIAnalysisRepository] 전체 데이터: {response.items.Count}개");
+                Debug.Log($"[AIAnalysisRepository] Board={boardId}, HNS={hnsId} 필터링 결과: {sensorData.Count}개");
 
+                // AI값 확인하려면 이 부분에 추가:
+                foreach (var item in sensorData)
+                {
+                    Debug.Log($"시간: {item.time}, 측정값: {item.value}, AI값: {item.aiValue}");
+                }
+*/
                 return data;
             }
             catch (Exception ex)

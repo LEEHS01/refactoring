@@ -132,6 +132,7 @@ namespace Repositories.MonitorB
             chartData.startTime = startTime;
             chartData.endTime = endTime;
             chartData.timeLabels = GenerateTimeLabels(startTime, endTime, 7);
+            chartData.allTimes = dataPoints.Select(d => d.time).ToList();
             chartData.values = dataPoints.Select(d => d.value).ToList();
 
             if (chartData.values.Count > 0)

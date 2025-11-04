@@ -15,6 +15,7 @@ namespace Views.MonitorB
         [SerializeField] private TMP_Text txtSensorName;
         [SerializeField] private TMP_Text txtChartTimeRange;
         [SerializeField] private Button btnAIAnalysis;
+        [SerializeField] private Button btnTable;
 
         [Header("Chart Configuration")]
         [SerializeField] private RectTransform chartBoundsArea;
@@ -30,6 +31,8 @@ namespace Views.MonitorB
         private ChartTooltipHandler tooltipHandler;
 
         private PopupAIAnalysisView aiAnalysisPopup;
+        private PopupTableView tablePopup;
+
         private int currentObsId;
         private int currentBoardId;
         private int currentHnsId;
@@ -44,6 +47,7 @@ namespace Views.MonitorB
                 Debug.LogError("[SensorChartView] ChartLineRenderer를 찾을 수 없습니다!");
             }
             aiAnalysisPopup = FindObjectOfType<PopupAIAnalysisView>(true);
+            tablePopup = FindObjectOfType<PopupTableView>(true);
         }
 
         private void Start()
@@ -54,6 +58,11 @@ namespace Views.MonitorB
             if (btnAIAnalysis != null)
             {
                 btnAIAnalysis.onClick.AddListener(OnClickAIAnalysisButton);
+            }
+
+            if (btnTable != null)
+            {
+                btnTable.onClick.AddListener(OnClickTableButton);
             }
         }
 
@@ -77,6 +86,44 @@ namespace Views.MonitorB
 
             aiAnalysisPopup.OpenPopup(currentObsId, currentBoardId, currentHnsId);
             Debug.Log($"[SensorChartView] AI 분석 팝업 열기: obs={currentObsId}, board={currentBoardId}, hns={currentHnsId}");
+        }
+        private void OnClickTableButton()
+        {
+            if (tablePopup == null)
+            {
+                Debug.LogError("[SensorChartView] 테이블 팝업을 찾을 수 없습니다!");
+                return;
+            }
+
+            var chartData = SensorChartViewModel.Instance?.currentChartData;
+            if (chartData == null)
+            {
+                Debug.LogWarning("[SensorChartView] 표시할 차트 데이터가 없습니다!");
+                return;
+            }
+
+            // 센서 정보 가져오기
+            string sensorName = txtSensorName != null ? txtSensorName.text : "알 수 없는 센서";
+
+            // 단위 가져오기 (SensorMonitorViewModel에서)
+            string unit = GetSensorUnit(currentBoardId, currentHnsId);
+
+            tablePopup.OpenPopup(sensorName, unit, chartData);
+            Debug.Log($"[SensorChartView] 테이블 팝업 열기");
+        }
+
+        /// <summary>
+        /// 센서 단위 가져오기
+        /// </summary>
+        private string GetSensorUnit(int boardId, int hnsId)
+        {
+            var sensors = SensorMonitorViewModel.Instance?.AllSensors;
+            if (sensors != null)
+            {
+                var sensor = sensors.Find(s => s.boardIdx == boardId && s.hnsIdx == hnsId);
+                return sensor?.unit ?? "";
+            }
+            return "";
         }
 
         private void InitializeChart()
