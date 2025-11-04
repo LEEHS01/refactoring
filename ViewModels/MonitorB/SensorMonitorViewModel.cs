@@ -34,6 +34,7 @@ namespace ViewModels.MonitorB
         public List<SensorInfoData> WaterQualitySensors => waterQualitySensors;
 
         private int currentObsId = -1;
+        public int CurrentObsId => currentObsId;
 
         #region Unity 생명주기
 

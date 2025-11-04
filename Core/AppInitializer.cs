@@ -60,6 +60,7 @@ public class AppInitializer : MonoBehaviour
         CreateViewModel<AIAnalysisViewModel>("AIAnalysisViewModel");
         CreateViewModel<AlarmDetailViewModel>("AlarmDetailViewModel");
         CreateViewModel<PopUpToxinDetail2ViewModel>("PopUpToxinDetail2ViewModel");
+        CreateViewModel<CCTVViewModel>("CCTVViewModel");
 
         // 모든 ViewModel이 준비될 때까지 대기
         while (AlarmLogViewModel.Instance == null ||
@@ -68,7 +69,8 @@ public class AppInitializer : MonoBehaviour
                SensorChartViewModel.Instance == null ||
                AIAnalysisViewModel.Instance == null ||
                AlarmDetailViewModel.Instance == null ||
-               PopUpToxinDetail2ViewModel.Instance == null)
+               PopUpToxinDetail2ViewModel.Instance == null ||
+               CCTVViewModel.Instance == null)
         {
             yield return null;
         }
