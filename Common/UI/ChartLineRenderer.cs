@@ -74,7 +74,7 @@ namespace Common.UI
             // ⭐ 오브젝트 풀 초기화
             InitializePool();
 
-            Debug.Log($"[ChartLineRenderer] 초기화 완료: {chartBounds.name}");
+            //Debug.Log($"[ChartLineRenderer] 초기화 완료: {chartBounds.name}");
         }
 
         public void UpdateChart(List<float> normalizedValues)

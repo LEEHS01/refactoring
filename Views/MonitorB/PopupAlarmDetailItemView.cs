@@ -29,7 +29,7 @@ namespace Views.MonitorB
 
         private void Awake()
         {
-            Debug.Log($"Awake 호출: {gameObject.name}");
+            //Debug.Log($"Awake 호출: {gameObject.name}");
 
             // ChartLineRenderer 자동 탐색
             chartRenderer = GetComponentInChildren<ChartLineRenderer>();
@@ -40,7 +40,7 @@ namespace Views.MonitorB
             }
             else
             {
-                Debug.Log($"ChartLineRenderer 발견");
+                //Debug.Log($"ChartLineRenderer 발견");
             }
 
             if (chartBoundsArea == null)
@@ -49,13 +49,13 @@ namespace Views.MonitorB
             }
             else
             {
-                Debug.Log($"chartBoundsArea 발견: {chartBoundsArea.name}");
+                //Debug.Log($"chartBoundsArea 발견: {chartBoundsArea.name}");
             }
 
             if (chartRenderer != null && chartBoundsArea != null)
             {
                 chartRenderer.Initialize(chartBoundsArea);
-                Debug.Log($"ChartRenderer Initialize 완료");
+                //Debug.Log($"ChartRenderer Initialize 완료");
             }
 
             if (btnItem == null)
