@@ -158,8 +158,19 @@ namespace Common.UI
 
         /// <summary>
         /// 멀티 디스플레이 환경에서 정확한 마우스 좌표 계산
-        /// </summary>
+        /// </summary>\
         private bool TryGetPointerOnCanvas(Canvas canvas, out Vector2 screenPos)
+        {
+            screenPos = Input.mousePosition;
+
+            // Overlay 모드면 바로 반환
+            if (canvas.renderMode == RenderMode.ScreenSpaceOverlay)
+                return true;
+
+            // 모든 환경에서 true 반환
+            return true;
+        }
+        /*private bool TryGetPointerOnCanvas(Canvas canvas, out Vector2 screenPos)
         {
             screenPos = Input.mousePosition;
 
@@ -173,8 +184,9 @@ namespace Common.UI
     // 이하 멀티 디스플레이 로직 (기존 코드 유지)
     int target = canvas.targetDisplay;
     // ... 생략 (기존 코드와 동일)
+     return true;
 #endif
-        }
+        }*/
         #endregion
 
         #region Private Methods - Point Detection

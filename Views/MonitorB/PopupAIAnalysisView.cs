@@ -4,6 +4,7 @@ using UnityEngine.UI;
 using TMPro;
 using ViewModels.MonitorB;
 using System;
+using Common.UI;
 
 namespace Views.MonitorB
 {
@@ -99,6 +100,9 @@ namespace Views.MonitorB
             Debug.Log($"[PopupAIAnalysisView] 팝업 열기: obs={obsId}, board={boardId}, hns={hnsId}");
 
             gameObject.SetActive(true);
+
+            // ⭐ 추가: 이전 차트 데이터 모두 클리어
+            ClearAllCharts();
 
             // 센서명 가져오기 (임시 → 실제)
             LoadSensorName();
@@ -213,6 +217,15 @@ namespace Views.MonitorB
             {
                 txtTimeRange.text = "데이터 조회 실패";
             }
+        }
+
+        private void ClearAllCharts()
+        {
+            Debug.Log("[PopupAIAnalysisView] 모든 차트 초기화");
+
+            chartAI?.ClearChart();
+            chartMeasured?.ClearChart();
+            chartDifference?.ClearChart();
         }
 
         private void ClosePopup()

@@ -1,6 +1,6 @@
 using System;
 using UnityEngine;
-using static UnityEditor.Profiling.HierarchyFrameDataView;
+
 
 namespace Core
 {

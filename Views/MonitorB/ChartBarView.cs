@@ -85,6 +85,22 @@ namespace Views.MonitorB
         }
 
         /// <summary>
+        /// 차트 클리어
+        /// </summary>
+        public void ClearChart()
+        {
+            // ⭐ 색상을 먼저 초기화 (풀에 반환되기 전에!)
+            ResetAllPointColors();
+
+            if (chartRenderer != null)
+            {
+                chartRenderer.ClearChart();
+                chartPoints.Clear();
+                Debug.Log($"[ChartBarView] {gameObject.name} 차트 클리어 완료");
+            }
+        }
+
+        /// <summary>
         /// 이상치 빨간점 표시
         /// </summary>
         public void HighlightAnomalousPoints(List<int> anomalousIndices)
