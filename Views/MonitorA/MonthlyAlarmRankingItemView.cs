@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 using HNS.MonitorA.Models;
 
 namespace HNS.MonitorA.Views
@@ -11,6 +12,7 @@ namespace HNS.MonitorA.Views
     public class MonthlyAlarmRankingItemView : MonoBehaviour
     {
         [Header("UI References")]
+        [SerializeField] private Image itemColorIndicator;   // 순위별 색상 표시
         [SerializeField] private TMP_Text areaNameText;      // 지역이름
         [SerializeField] private TMP_Text percentageText;    // 백분율 (00)
 
@@ -22,6 +24,16 @@ namespace HNS.MonitorA.Views
 
         [Header("Display Settings")]
         [SerializeField] private string emptyText = "지역이름";
+
+        // 순위별 색상 (1위~5위)
+        private static readonly Color[] RankColors = new Color[]
+        {
+            new Color(0.98f, 0.36f, 0.98f),  // 1위: FA5CFB (분홍색/마젠타)
+            new Color(0.09f, 0.95f, 0.96f),  // 2위: 18F3F5 (하늘색)
+            new Color(0.20f, 0.89f, 0.14f),  // 3위: 32E223 (초록색)
+            new Color(0.93f, 0.40f, 0.21f),  // 4위: EE6635 (빨간색)
+            new Color(0.25f, 0.25f, 0.93f)   // 5위: 4040EE (파란색)
+        };
 
         private MonthlyAlarmRankingData currentData;
 
@@ -39,6 +51,12 @@ namespace HNS.MonitorA.Views
 
             currentData = data;
 
+            // 순위별 색상 적용
+            if (itemColorIndicator != null && data.Rank >= 1 && data.Rank <= RankColors.Length)
+            {
+                itemColorIndicator.color = RankColors[data.Rank - 1];
+            }
+
             // 지역명
             if (areaNameText != null)
                 areaNameText.text = data.AreaName;
@@ -52,6 +70,8 @@ namespace HNS.MonitorA.Views
 
             // 활성화
             gameObject.SetActive(true);
+
+            Debug.Log($"[MonthlyAlarmRankingItemView] {data.Rank}위: {data.AreaName} - {data.AlarmCount}건, 색상: {RankColors[data.Rank - 1]}");
         }
 
         /// <summary>
@@ -80,9 +100,6 @@ namespace HNS.MonitorA.Views
 
             if (unitsDigitText != null)
                 unitsDigitText.text = units.ToString();
-
-            // 디버그 로그
-            Debug.Log($"[MonthlyAlarmRankingItemView] 숫자 표시: {count} → {thousands}/{hundreds}/{tens}/{units}");
         }
 
         /// <summary>
@@ -96,12 +113,15 @@ namespace HNS.MonitorA.Views
             if (percentageText != null)
                 percentageText.text = "00";
 
+            // 색상 초기화 (회색)
+            if (itemColorIndicator != null)
+                itemColorIndicator.color = new Color(0.5f, 0.5f, 0.5f);
+
             // 모든 숫자를 0으로
             UpdateDigitDisplay(0);
 
             // 비활성화 또는 반투명 처리
             gameObject.SetActive(false);
         }
-
     }
 }

@@ -1,10 +1,10 @@
 ﻿using UnityEngine;
-using UnityEngine.Events;
 using System.Collections.Generic;
 using System.Linq;
 using System;
 using HNS.MonitorA.Models;
 using HNS.MonitorA.Repositories;
+using HNS.Services;
 
 namespace HNS.MonitorA.ViewModels
 {
@@ -16,14 +16,11 @@ namespace HNS.MonitorA.ViewModels
     {
         public static MonthlyAlarmTop5ViewModel Instance { get; private set; }
 
-        [Header("Events")]
-        public UnityEvent<List<MonthlyAlarmRankingData>> OnRankingUpdated;
-
-        [Header("Settings")]
-        [SerializeField] private float autoRefreshInterval = 60f; // 자동 갱신 간격 (초)
-
+        private SchedulerService schedulerService;
         private MonthlyAlarmRepository repository;
-        private float refreshTimer;
+
+        public event Action<List<MonthlyAlarmRankingData>> OnRankingUpdated;
+        public event Action<string> OnTitleUpdated;
 
         private void Awake()
         {
@@ -34,26 +31,49 @@ namespace HNS.MonitorA.ViewModels
 
             repository = new MonthlyAlarmRepository();
 
-            // UnityEvent 초기화 (중요!)
-            if (OnRankingUpdated == null)
-                OnRankingUpdated = new UnityEvent<List<MonthlyAlarmRankingData>>();
+            Debug.Log("[MonthlyAlarmTop5ViewModel] Awake 완료");
         }
 
         private void Start()
         {
+            // SchedulerService 자동 검색
+            schedulerService = FindFirstObjectByType<SchedulerService>();
+
+            if (schedulerService == null)
+            {
+                Debug.LogWarning("[MonthlyAlarmTop5ViewModel] SchedulerService를 찾을 수 없습니다. 이벤트 구독 건너뜀");
+            }
+            else
+            {
+                // 알람 발생 시에만 구독
+                schedulerService.OnAlarmDetected += HandleAlarmChange;
+                Debug.Log("[MonthlyAlarmTop5ViewModel] SchedulerService 이벤트 구독 완료");
+            }
+
             // 초기 로드
+            UpdateTitle();
             LoadMonthlyRanking();
         }
 
-        private void Update()
+        private void OnDestroy()
         {
-            // 자동 갱신
-            refreshTimer += Time.deltaTime;
-            if (refreshTimer >= autoRefreshInterval)
+            if (schedulerService != null)
             {
-                refreshTimer = 0f;
-                LoadMonthlyRanking();
+                schedulerService.OnAlarmDetected -= HandleAlarmChange;
             }
+        }
+
+        private void HandleAlarmChange()
+        {
+            Debug.Log("[MonthlyAlarmTop5ViewModel] 알람 발생 감지 - 월간 통계 갱신");
+            LoadMonthlyRanking();
+        }
+
+        private void UpdateTitle()
+        {
+            int currentMonth = DateTime.Now.Month;
+            string title = $"월간 발생 건수 ({currentMonth}월)";
+            OnTitleUpdated?.Invoke(title);
         }
 
         /// <summary>
@@ -124,7 +144,7 @@ namespace HNS.MonitorA.ViewModels
         /// </summary>
         public void RefreshRanking()
         {
-            refreshTimer = 0f;
+            UpdateTitle();
             LoadMonthlyRanking();
         }
     }
