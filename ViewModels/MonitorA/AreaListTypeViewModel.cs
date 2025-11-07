@@ -1,6 +1,8 @@
 ﻿using Assets.Scripts_refactoring.Models.MonitorA;
+using Assets.Scripts_refactoring.ViewModels.MonitorA;
 using HNS.MonitorA.Models;
 using HNS.MonitorA.Repositories;
+using HNS.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,6 +10,10 @@ using UnityEngine;
 
 namespace Assets.Scripts_refactoring.ViewModels.MonitorA
 {
+    /// <summary>
+    /// 지역별 관측소 현황 ViewModel (Singleton)
+    /// 알람 발생/해제 시 자동 업데이트
+    /// </summary>
     public class AreaListTypeViewModel : MonoBehaviour
     {
         #region Singleton
@@ -39,6 +45,8 @@ namespace Assets.Scripts_refactoring.ViewModels.MonitorA
         #region Private Fields
 
         private AreaRepository repository;
+        private SchedulerService schedulerService;
+
         private List<AreaListModel> oceanAreas = new();
         private List<AreaListModel> nuclearAreas = new();
 
@@ -60,7 +68,70 @@ namespace Assets.Scripts_refactoring.ViewModels.MonitorA
             // Repository 초기화
             repository = new AreaRepository();
 
+            // ⭐ FindObjectOfType으로 찾기
+            schedulerService = FindFirstObjectByType<SchedulerService>();
+
+            if (schedulerService == null)
+            {
+                LogError("SchedulerService를 찾을 수 없습니다!");
+            }
+            else
+            {
+                SubscribeToScheduler();
+            }
+
             // 초기 데이터 로드
+            StartCoroutine(LoadAllAreasCoroutine());
+        }
+
+        private void OnDestroy()
+        {
+            UnsubscribeFromScheduler();
+        }
+
+        #endregion
+
+        #region SchedulerService 구독
+
+        /// <summary>
+        /// SchedulerService 이벤트 구독 (알람 변경만)
+        /// </summary>
+        private void SubscribeToScheduler()
+        {
+            if (schedulerService == null) return;
+
+            // ⭐ 알람 발생 시: 즉시 업데이트
+            schedulerService.OnAlarmDetected += OnAlarmChanged;
+
+            // ⭐ 알람 해제 시: 즉시 업데이트
+            schedulerService.OnAlarmCancelled += OnAlarmChanged;
+
+            LogInfo("알람 이벤트 구독 완료");
+        }
+
+        /// <summary>
+        /// SchedulerService 이벤트 구독 해제
+        /// </summary>
+        private void UnsubscribeFromScheduler()
+        {
+            if (schedulerService == null) return;
+
+            schedulerService.OnAlarmDetected -= OnAlarmChanged;
+            schedulerService.OnAlarmCancelled -= OnAlarmChanged;
+
+            LogInfo("알람 이벤트 구독 해제");
+        }
+
+        #endregion
+
+        #region 이벤트 핸들러
+
+        /// <summary>
+        /// 알람 발생/해제 시 업데이트
+        /// </summary>
+        private void OnAlarmChanged()
+        {
+            LogInfo("알람 변경 감지 - 지역별 현황 업데이트");
             StartCoroutine(LoadAllAreasCoroutine());
         }
 
@@ -68,19 +139,14 @@ namespace Assets.Scripts_refactoring.ViewModels.MonitorA
 
         #region Public Methods
 
-        public void LoadAllAreas()
-        {
-            StartCoroutine(LoadAllAreasCoroutine());
-        }
-
         /// <summary>
-        /// 특정 타입만 새로고침
+        /// 특정 타입만 새로고침 (캐시된 데이터 재전송)
         /// </summary>
-        public void RefreshAreasByType(AreaData.AreaType areaType)  // ⭐ 수정!
+        public void RefreshAreasByType(AreaData.AreaType areaType)
         {
             LogInfo($"{areaType} 타입 새로고침");
 
-            if (areaType == AreaData.AreaType.Ocean)  // ⭐ 수정!
+            if (areaType == AreaData.AreaType.Ocean)
             {
                 OnOceanAreasChanged?.Invoke(oceanAreas);
             }
@@ -94,6 +160,9 @@ namespace Assets.Scripts_refactoring.ViewModels.MonitorA
 
         #region Private Methods
 
+        /// <summary>
+        /// 모든 지역 데이터 로드 (Coroutine)
+        /// </summary>
         private System.Collections.IEnumerator LoadAllAreasCoroutine()
         {
             LogInfo("지역별 관측소 현황 로드 시작...");
@@ -102,6 +171,7 @@ namespace Assets.Scripts_refactoring.ViewModels.MonitorA
             List<AreaObservatoryStatusData> result = null;
             string error = null;
 
+            // Repository에서 데이터 조회
             yield return repository.GetAllAreaObservatoryStatus(
                 (data) =>
                 {
@@ -115,17 +185,20 @@ namespace Assets.Scripts_refactoring.ViewModels.MonitorA
                 }
             );
 
+            // 완료 대기
             while (!isComplete)
             {
                 yield return null;
             }
 
+            // 에러 처리
             if (!string.IsNullOrEmpty(error))
             {
                 LogError($"데이터 로드 실패: {error}");
                 yield break;
             }
 
+            // 데이터가 없으면 빈 리스트
             if (result == null || result.Count == 0)
             {
                 LogWarning("지역 데이터가 없습니다!");
@@ -139,21 +212,25 @@ namespace Assets.Scripts_refactoring.ViewModels.MonitorA
 
             // 해양시설/발전소 타입별 분류
             oceanAreas = result
-                .Where(a => a.AreaType == AreaData.AreaType.Ocean)  // ⭐ 수정!
+                .Where(a => a.AreaType == AreaData.AreaType.Ocean)
                 .Select(MapToModel)
                 .ToList();
 
             nuclearAreas = result
-                .Where(a => a.AreaType == AreaData.AreaType.Nuclear)  // ⭐ 수정!
+                .Where(a => a.AreaType == AreaData.AreaType.Nuclear)
                 .Select(MapToModel)
                 .ToList();
 
             LogInfo($"해양시설: {oceanAreas.Count}개, 발전소: {nuclearAreas.Count}개");
 
+            // 이벤트 발생
             OnOceanAreasChanged?.Invoke(oceanAreas);
             OnNuclearAreasChanged?.Invoke(nuclearAreas);
         }
 
+        /// <summary>
+        /// AreaObservatoryStatusData를 AreaListModel로 변환
+        /// </summary>
         private AreaListModel MapToModel(AreaObservatoryStatusData data)
         {
             return new AreaListModel

@@ -68,6 +68,7 @@ public class AppInitializer : MonoBehaviour
         CreateViewModel<MonthlyAlarmTop5ViewModel>("MonthlyAlarmTop5ViewModel");
         CreateViewModel<YearlyAlarmTop5ViewModel>("YearlyAlarmTop5ViewModel");
         CreateViewModel<AreaListTypeViewModel>("AreaListTypeViewModel");
+        CreateViewModel<MapNationViewModel>("MapNationViewModel");
 
         // 모든 ViewModel이 준비될 때까지 대기
         while (AlarmLogViewModel.Instance == null ||
@@ -80,7 +81,8 @@ public class AppInitializer : MonoBehaviour
                CCTVViewModel.Instance == null ||
                MonthlyAlarmTop5ViewModel.Instance == null ||
                YearlyAlarmTop5ViewModel.Instance == null ||
-               AreaListTypeViewModel.Instance == null)
+               AreaListTypeViewModel.Instance == null ||
+               MapNationViewModel.Instance == null)  
         {
             yield return null;
         }
