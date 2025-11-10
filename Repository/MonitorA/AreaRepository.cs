@@ -4,7 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Services;
-using Models;  // ⭐ 이거만 있으면 됨!
+using Models.MonitorB;  // ⭐ 이거만 있으면 됨!
 using HNS.MonitorA.Models;  // ⭐ AreaObservatoryStatusData만 여기서
 
 namespace HNS.MonitorA.Repositories

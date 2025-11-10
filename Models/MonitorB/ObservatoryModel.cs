@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Models
+namespace Models.MonitorB
 {
     [Serializable]
     public class ObservatoryModel

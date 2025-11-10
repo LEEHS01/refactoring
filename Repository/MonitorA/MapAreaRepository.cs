@@ -8,8 +8,8 @@ using System.Linq;
 using UnityEngine;
 
 //  명시적으로 Models의 타입 사용
-using AlarmLogModel = Models.AlarmLogModel;  
-using ObservatoryModel = Models.ObservatoryModel; 
+using AlarmLogModel = Models.AlarmLogModel;
+using ObservatoryModel = Models.MonitorB.ObservatoryModel;  // ⭐ 추가!
 
 namespace HNS.MonitorA.Repositories
 {

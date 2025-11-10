@@ -19,13 +19,13 @@ namespace Repositories.MonitorB
         /// </summary>
         public IEnumerator GetObservatoryCCTV(
             int obsId,
-            Action<Models.ObservatoryModel> onSuccess,  // ⭐ Models. 명시
+            Action<Models.MonitorB.ObservatoryModel> onSuccess,  // ⭐ Models. 명시
             Action<string> onError)
         {
             yield return Database.ExecuteProcedure(
                 "GET_OBS",
                 null,
-                (List<Models.ObservatoryModel> allObs) =>  // ⭐ Models. 명시
+                (List<Models.MonitorB.ObservatoryModel> allObs) =>  // ⭐ Models. 명시
                 {
                     if (allObs == null || allObs.Count == 0)
                     {
