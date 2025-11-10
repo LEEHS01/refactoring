@@ -1,25 +1,22 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using HNS.MonitorA.Models;
 using HNS.MonitorA.ViewModels;
 using Core;
 
-namespace Views.MonitorA  // ✅ 이렇게 수정!
+namespace Views.MonitorA
 {
-    /// <summary>
-    /// 전국 지도 View
-    /// - 드래그/줌 기능
-    /// - 마커 색상 업데이트
-    /// </summary>
     public class MapNationView : BaseView,
         IBeginDragHandler, IEndDragHandler, IDragHandler, IScrollHandler
     {
         [Header("UI References")]
         [SerializeField] private Image imgBackground;
         [SerializeField] private Transform markerListParent;
+        [SerializeField] private Canvas parentCanvas;  // ✅ 추가: Canvas 참조
 
         [Header("Drag/Zoom Settings")]
         [SerializeField] private float scrollSpeed = 0.1f;
@@ -28,10 +25,18 @@ namespace Views.MonitorA  // ✅ 이렇게 수정!
         [SerializeField] private float minScale = 0.7f;
         [SerializeField] private float maxScale = 2f;
 
+        [Header("Minimap Settings (Relative)")]
+        [SerializeField] private Vector2 minimapOffsetFromCenter = new Vector2(700, 200);  // ✅ 중앙 기준 오프셋
+        [SerializeField] private float minimapScale = 0.6f;  // 60%
+        [SerializeField] private float minimapBackgroundAlpha = 0f;  // 투명
+        [SerializeField] private float fullscreenBackgroundAlpha = 0.4f;  // 40%
+
         private RectTransform _rectTransform;
         private List<MapNationMarkerView> _markerViews;
-        private Vector3 _originalPosition = new Vector3(-50, -100, 0);
 
+        private Vector3 _originalPosition = new Vector3(-50, -100, 0);
+        private Vector3 _originalScale = new Vector3(1, 1, 1);
+        private bool _isDraggable = true;
 
         #region BaseView 구현
 
@@ -39,10 +44,16 @@ namespace Views.MonitorA  // ✅ 이렇게 수정!
         {
             _rectTransform = GetComponent<RectTransform>();
 
-            // Inspector 연결 검증
+            // ✅ Canvas 자동 찾기
+            if (parentCanvas == null)
+            {
+                parentCanvas = GetComponentInParent<Canvas>();
+            }
+
             bool isValid = ValidateComponents(
                 (imgBackground, "imgBackground"),
-                (markerListParent, "markerListParent")
+                (markerListParent, "markerListParent"),
+                (parentCanvas, "parentCanvas")
             );
 
             if (!isValid)
@@ -51,17 +62,28 @@ namespace Views.MonitorA  // ✅ 이렇게 수정!
                 return;
             }
 
-            // 마커 View들 수집
             _markerViews = markerListParent
                 .GetComponentsInChildren<MapNationMarkerView>(true)
                 .ToList();
 
             LogInfo($"마커 View {_markerViews.Count}개 발견");
+
+            // 초기 위치/크기 설정
+            _rectTransform.localPosition = _originalPosition;
+            _rectTransform.localScale = _originalScale;
         }
 
         protected override void SetupViewEvents()
         {
-            // TODO: 마커 클릭 이벤트 (NavigateArea 구현 시)
+            foreach (var markerView in _markerViews)
+            {
+                if (markerView != null)
+                {
+                    markerView.OnAreaClicked += OnAreaClicked;
+                }
+            }
+
+            LogInfo("마커 클릭 이벤트 구독 완료");
         }
 
         protected override void ConnectToViewModel()
@@ -89,16 +111,19 @@ namespace Views.MonitorA  // ✅ 이렇게 수정!
 
         protected override void DisconnectViewEvents()
         {
-            // TODO: 마커 클릭 이벤트 해제
+            foreach (var markerView in _markerViews)
+            {
+                if (markerView != null)
+                {
+                    markerView.OnAreaClicked -= OnAreaClicked;
+                }
+            }
         }
 
         #endregion
 
         #region ViewModel 이벤트 핸들러
 
-        /// <summary>
-        /// 마커 데이터 업데이트
-        /// </summary>
         private void UpdateMarkers(List<MapMarkerData> markerDataList)
         {
             if (markerDataList.Count != _markerViews.Count)
@@ -118,7 +143,128 @@ namespace Views.MonitorA  // ✅ 이렇게 수정!
         private void HandleError(string errorMessage)
         {
             LogError($"에러: {errorMessage}");
-            // TODO: 에러 팝업 표시
+        }
+
+        #endregion
+
+        #region View 이벤트 핸들러
+
+        private void OnAreaClicked(int areaId)
+        {
+            LogInfo($"지역 클릭: AreaId={areaId}");
+
+            SwitchToMinimapMode();
+
+            if (MapAreaViewModel.Instance != null)
+            {
+                MapAreaViewModel.Instance.LoadAreaData(areaId);
+            }
+            else
+            {
+                LogError("MapAreaViewModel.Instance가 null입니다!");
+            }
+        }
+
+        #endregion
+
+        #region 미니맵 모드 (해상도 독립적)
+
+        /// <summary>
+        /// 미니맵 모드로 전환 (해상도 독립적)
+        /// </summary>
+        public void SwitchToMinimapMode()
+        {
+            _isDraggable = false;
+
+            // ✅ Canvas 크기 기준 중앙 좌표 계산 (해상도 독립적!)
+            RectTransform canvasRect = parentCanvas.GetComponent<RectTransform>();
+            Vector2 canvasSize = canvasRect.sizeDelta;
+
+            // 중앙 좌표 = Canvas 크기의 절반
+            Vector3 centerPosition = new Vector3(canvasSize.x / 2f, canvasSize.y / 2f, 0);
+
+            // 미니맵 위치 = 중앙 + 오프셋
+            Vector3 targetPosition = centerPosition + (Vector3)minimapOffsetFromCenter;
+
+            LogInfo($"Canvas 크기: {canvasSize}, 중앙: {centerPosition}, 미니맵 위치: {targetPosition}");
+
+            StopAllCoroutines();
+            StartCoroutine(AnimateToMinimap(
+                minimapBackgroundAlpha,
+                targetPosition,
+                minimapScale,
+                1f
+            ));
+
+            LogInfo("미니맵 모드로 전환");
+        }
+
+        /// <summary>
+        /// 전체 화면 모드로 복귀
+        /// </summary>
+        public void SwitchToFullscreenMode()
+        {
+            _isDraggable = true;
+
+            // ✅ Canvas 크기 기준 중앙 좌표 (해상도 독립적!)
+            RectTransform canvasRect = parentCanvas.GetComponent<RectTransform>();
+            Vector2 canvasSize = canvasRect.sizeDelta;
+            Vector3 centerPosition = new Vector3(canvasSize.x / 2f, canvasSize.y / 2f, 0);
+
+            StopAllCoroutines();
+            StartCoroutine(AnimateToMinimap(
+                fullscreenBackgroundAlpha,
+                centerPosition,
+                1f,
+                1f
+            ));
+
+            // 원본 위치/크기로 복귀
+            _rectTransform.localPosition = _originalPosition;
+            _rectTransform.localScale = _originalScale;
+
+            LogInfo("전체 화면 모드로 전환");
+        }
+
+        /// <summary>
+        /// 애니메이션 코루틴
+        /// </summary>
+        private IEnumerator AnimateToMinimap(float targetAlpha, Vector3 targetPosition, float targetScale, float duration)
+        {
+            Color startColor = imgBackground.color;
+            Color targetColor = new Color(startColor.r, startColor.g, startColor.b, targetAlpha);
+
+            Vector3 startPosition = _rectTransform.position;
+            Vector3 startScale = _rectTransform.localScale;
+            Vector3 endScale = Vector3.one * targetScale;
+
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = elapsed / duration;
+
+                // 배경 알파 (절반 시간만 사용)
+                if (elapsed < duration / 2f)
+                {
+                    float alphaT = (elapsed / (duration / 2f));
+                    imgBackground.color = Color.Lerp(startColor, targetColor, alphaT);
+                }
+
+                // 위치
+                _rectTransform.position = Vector3.Lerp(startPosition, targetPosition, t);
+
+                // 스케일
+                _rectTransform.localScale = Vector3.Lerp(startScale, endScale, t);
+
+                yield return null;
+            }
+
+            // 최종값 보정
+            imgBackground.color = targetColor;
+            _rectTransform.position = targetPosition;
+            _rectTransform.localScale = endScale;
         }
 
         #endregion
@@ -127,6 +273,8 @@ namespace Views.MonitorA  // ✅ 이렇게 수정!
 
         public void OnDrag(PointerEventData eventData)
         {
+            if (!_isDraggable) return;
+
             Vector3 newPos = _rectTransform.localPosition +
                 new Vector3(eventData.delta.x, eventData.delta.y, 0);
             _rectTransform.localPosition = ClampPosition(newPos);
@@ -134,6 +282,8 @@ namespace Views.MonitorA  // ✅ 이렇게 수정!
 
         public void OnScroll(PointerEventData eventData)
         {
+            if (!_isDraggable) return;
+
             Vector3 newScale = _rectTransform.localScale +
                 Vector3.one * eventData.scrollDelta.y * scrollSpeed;
             newScale = ClampScale(newScale);
@@ -170,5 +320,15 @@ namespace Views.MonitorA  // ✅ 이렇게 수정!
         public void OnEndDrag(PointerEventData eventData) { }
 
         #endregion
+
+        private void LogInfo(string message)
+        {
+            Debug.Log($"[MapNationView] {message}");
+        }
+
+        private void LogError(string message)
+        {
+            Debug.LogError($"[MapNationView] {message}");
+        }
     }
 }

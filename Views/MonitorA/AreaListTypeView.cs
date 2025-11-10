@@ -4,9 +4,10 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using Assets.Scripts_refactoring.Models.MonitorA;
-using Assets.Scripts_refactoring.ViewModels.MonitorA;
+using HNS.MonitorA.ViewModels;
+using Assets.Scripts_refactoring.Views.MonitorA;
 
-namespace Assets.Scripts_refactoring.Views.MonitorA
+namespace HNS.MonitorA.Views
 {
     /// <summary>
     /// 지역별 관측소 현황 View

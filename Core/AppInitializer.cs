@@ -1,5 +1,4 @@
-﻿using Assets.Scripts_refactoring.ViewModels.MonitorA;
-using HNS.MonitorA.ViewModels;
+﻿using HNS.MonitorA.ViewModels;
 using Services;
 using System.Collections;
 using UnityEngine;
@@ -69,6 +68,7 @@ public class AppInitializer : MonoBehaviour
         CreateViewModel<YearlyAlarmTop5ViewModel>("YearlyAlarmTop5ViewModel");
         CreateViewModel<AreaListTypeViewModel>("AreaListTypeViewModel");
         CreateViewModel<MapNationViewModel>("MapNationViewModel");
+        CreateViewModel<MapAreaViewModel>("MapAreaViewModel");
 
         // 모든 ViewModel이 준비될 때까지 대기
         while (AlarmLogViewModel.Instance == null ||
@@ -82,7 +82,8 @@ public class AppInitializer : MonoBehaviour
                MonthlyAlarmTop5ViewModel.Instance == null ||
                YearlyAlarmTop5ViewModel.Instance == null ||
                AreaListTypeViewModel.Instance == null ||
-               MapNationViewModel.Instance == null)  
+               MapNationViewModel.Instance == null ||
+               MapAreaViewModel.Instance == null)
         {
             yield return null;
         }

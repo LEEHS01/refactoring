@@ -1,5 +1,4 @@
 ﻿using Assets.Scripts_refactoring.Models.MonitorA;
-using Assets.Scripts_refactoring.ViewModels.MonitorA;
 using HNS.MonitorA.Models;
 using HNS.MonitorA.Repositories;
 using HNS.Services;
@@ -8,7 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-namespace Assets.Scripts_refactoring.ViewModels.MonitorA
+namespace HNS.MonitorA.ViewModels
 {
     /// <summary>
     /// 지역별 관측소 현황 ViewModel (Singleton)

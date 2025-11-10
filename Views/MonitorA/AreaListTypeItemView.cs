@@ -1,7 +1,4 @@
 ﻿using Assets.Scripts_refactoring.Models.MonitorA;
-using Assets.Scripts_refactoring.ViewModels.MonitorA;
-using Assets.Scripts_refactoring.Views.MonitorA;
-using System.Threading;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,6 +7,7 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
 {
     /// <summary>
     /// 개별 지역 아이템 View - 데이터 바인딩만 담당
+    /// Monitor B의 MonitorBSensorItemView 패턴 적용
     /// </summary>
     public class AreaListTypeItemView : MonoBehaviour
     {
@@ -30,6 +28,15 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
 
         #endregion
 
+        #region Events
+
+        /// <summary>
+        /// 지역 네비게이션 클릭 이벤트
+        /// </summary>
+        public event System.Action<int> OnNavigateClicked;
+
+        #endregion
+
         #region Unity Lifecycle
 
         private void Start()
@@ -37,6 +44,14 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
             if (btnNavigate != null)
             {
                 btnNavigate.onClick.AddListener(OnNavigateClick);
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (btnNavigate != null)
+            {
+                btnNavigate.onClick.RemoveListener(OnNavigateClick);
             }
         }
 
@@ -61,26 +76,30 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
                 lblAreaName.text = model.AreaName;
 
             if (lblGreenCount != null)
-                lblGreenCount.text = model.GreenCount.ToString("00");
+                lblGreenCount.text = model.GreenCount.ToString();
 
             if (lblYellowCount != null)
-                lblYellowCount.text = model.YellowCount.ToString("00");
+                lblYellowCount.text = model.YellowCount.ToString();
 
             if (lblRedCount != null)
-                lblRedCount.text = model.RedCount.ToString("00");
+                lblRedCount.text = model.RedCount.ToString();
 
             if (lblPurpleCount != null)
-                lblPurpleCount.text = model.PurpleCount.ToString("00");
+                lblPurpleCount.text = model.PurpleCount.ToString();
         }
 
         #endregion
 
         #region 이벤트 핸들러
 
+        /// <summary>
+        /// 네비게이션 버튼 클릭 핸들러
+        /// </summary>
         private void OnNavigateClick()
         {
-            // UiManager 이벤트 시스템 사용 (기존 방식)
-            UiManager.Instance.Invoke(UiEventType.NavigateArea, currentAreaId);
+            // MVVM 패턴: 이벤트 발행만 담당
+            OnNavigateClicked?.Invoke(currentAreaId);
+            Debug.Log($"[AreaListTypeItemView] 지역 네비게이션 클릭: AreaId={currentAreaId}");
         }
 
         #endregion
