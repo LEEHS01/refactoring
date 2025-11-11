@@ -7,7 +7,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace HNS.MonitorA.Views  // ✅ 수정!
+namespace HNS.MonitorA.Views
 {
     /// <summary>
     /// 지역 상세 지도 View
@@ -17,9 +17,10 @@ namespace HNS.MonitorA.Views  // ✅ 수정!
     {
         #region Inspector 설정
         [Header("UI Components")]
-        [SerializeField] private TMP_Text txtAreaTitle;     // TitleObs
-        [SerializeField] private Image imgAreaBackground;   // MapImage
-        [SerializeField] private Transform markerListParent; // MarkerList
+        [SerializeField] private TMP_Text txtAreaTitle;
+        [SerializeField] private Image imgAreaBackground;
+        [SerializeField] private Transform markerListParent;
+        [SerializeField] private CanvasGroup canvasGroup;  // ✅ 추가
         #endregion
 
         #region Private Fields
@@ -42,20 +43,29 @@ namespace HNS.MonitorA.Views  // ✅ 수정!
                 return;
             }
 
-            // 마커 View들 수집 (Object Pool)
+            // ✅ CanvasGroup 자동 추가
+            if (canvasGroup == null)
+            {
+                canvasGroup = GetComponent<CanvasGroup>();
+                if (canvasGroup == null)
+                {
+                    canvasGroup = gameObject.AddComponent<CanvasGroup>();
+                }
+            }
+
+            // 마커 View들 수집
             _markerViews = markerListParent
                 .GetComponentsInChildren<MapAreaMarkerView>(true)
                 .ToList();
 
             LogInfo($"마커 View {_markerViews.Count}개 수집 완료");
 
-            // 초기 비활성화
-            gameObject.SetActive(false);
+            // ✅ 초기 숨김 (GameObject는 활성화 유지)
+            HideView();
         }
 
         protected override void SetupViewEvents()
         {
-            // 각 마커의 클릭 이벤트 구독
             foreach (var markerView in _markerViews)
             {
                 if (markerView != null)
@@ -75,10 +85,10 @@ namespace HNS.MonitorA.Views  // ✅ 수정!
                 return;
             }
 
-            // ViewModel 이벤트 구독
             MapAreaViewModel.Instance.OnAreaInfoLoaded.AddListener(OnAreaInfoLoaded);
             MapAreaViewModel.Instance.OnObservatoriesLoaded.AddListener(OnObservatoriesLoaded);
             MapAreaViewModel.Instance.OnError.AddListener(OnError);
+            MapAreaViewModel.Instance.OnAreaCleared.AddListener(OnAreaCleared);
 
             LogInfo("ViewModel 이벤트 구독 완료");
         }
@@ -90,6 +100,7 @@ namespace HNS.MonitorA.Views  // ✅ 수정!
                 MapAreaViewModel.Instance.OnAreaInfoLoaded.RemoveListener(OnAreaInfoLoaded);
                 MapAreaViewModel.Instance.OnObservatoriesLoaded.RemoveListener(OnObservatoriesLoaded);
                 MapAreaViewModel.Instance.OnError.RemoveListener(OnError);
+                MapAreaViewModel.Instance.OnAreaCleared.RemoveListener(OnAreaCleared);
             }
         }
 
@@ -109,12 +120,11 @@ namespace HNS.MonitorA.Views  // ✅ 수정!
         /// <summary>
         /// 지역 정보 로드 완료
         /// </summary>
-        // OnAreaInfoLoaded 메서드 수정
         private void OnAreaInfoLoaded(AreaInfoData data)
         {
             LogInfo($"지역 정보 수신: {data.AreaName}");
 
-            // ✅ 모든 AreaListTypeView 비활성화 (Unity 2023+)
+            // ✅ 모든 AreaListTypeView 비활성화
             var areaListViews = FindObjectsByType<AreaListTypeView>(FindObjectsSortMode.None);
             foreach (var view in areaListViews)
             {
@@ -128,7 +138,7 @@ namespace HNS.MonitorA.Views  // ✅ 수정!
             // 지역명 표시
             if (txtAreaTitle != null)
             {
-                txtAreaTitle.text = data.AreaName ;
+                txtAreaTitle.text = data.AreaName;
             }
 
             // 배경 이미지 변경
@@ -147,8 +157,9 @@ namespace HNS.MonitorA.Views  // ✅ 수정!
                 }
             }
 
-            // View 활성화
-            gameObject.SetActive(true);
+            // ✅ View 표시 (GameObject는 계속 active)
+            ShowView();
+            LogInfo("MapAreaView 표시");
         }
 
         /// <summary>
@@ -158,18 +169,16 @@ namespace HNS.MonitorA.Views  // ✅ 수정!
         {
             LogInfo($"관측소 마커 렌더링: {observatories.Count}개");
 
-            // Object Pooling: 활성화/비활성화 + 데이터 바인딩
+            // Object Pooling
             for (int i = 0; i < _markerViews.Count; i++)
             {
                 if (i < observatories.Count)
                 {
-                    // 데이터 있음 → 활성화 + 바인딩
                     _markerViews[i].gameObject.SetActive(true);
                     _markerViews[i].Bind(observatories[i]);
                 }
                 else
                 {
-                    // 데이터 없음 → 비활성화
                     _markerViews[i].gameObject.SetActive(false);
                 }
             }
@@ -182,6 +191,43 @@ namespace HNS.MonitorA.Views  // ✅ 수정!
         {
             LogError($"ViewModel 에러: {errorMessage}");
         }
+
+        /// <summary>
+        /// HOME 복귀 시 지역 지도 숨김
+        /// </summary>
+        private void OnAreaCleared()
+        {
+            LogInfo("HOME 복귀: 지역 지도 숨김");
+            HideView();
+        }
+        #endregion
+
+        #region View 표시/숨김
+        /// <summary>
+        /// View 표시 (CanvasGroup 사용)
+        /// </summary>
+        private void ShowView()
+        {
+            if (canvasGroup != null)
+            {
+                canvasGroup.alpha = 1f;
+                canvasGroup.interactable = true;
+                canvasGroup.blocksRaycasts = true;
+            }
+        }
+
+        /// <summary>
+        /// View 숨김 (CanvasGroup 사용)
+        /// </summary>
+        private void HideView()
+        {
+            if (canvasGroup != null)
+            {
+                canvasGroup.alpha = 0f;
+                canvasGroup.interactable = false;
+                canvasGroup.blocksRaycasts = false;
+            }
+        }
         #endregion
 
         #region View 이벤트 핸들러
@@ -191,9 +237,7 @@ namespace HNS.MonitorA.Views  // ✅ 수정!
         private void OnObsMarkerClicked(int obsId)
         {
             LogInfo($"관측소 클릭: ObsId={obsId}");
-
             // TODO: Observatory3DViewModel.Instance.LoadObsData(obsId);
-            // 또는 다른 ViewModel 메서드 호출
         }
         #endregion
 

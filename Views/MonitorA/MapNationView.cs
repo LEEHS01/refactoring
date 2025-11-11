@@ -167,26 +167,42 @@ namespace Views.MonitorA
 
         #endregion
 
-        #region 미니맵 모드 (해상도 독립적)
+        #region 미니맵 모드 (Screen 해상도 기준)
 
         /// <summary>
-        /// 미니맵 모드로 전환 (해상도 독립적)
+        /// 미니맵 모드로 전환 (Screen 해상도 완전 대응)
         /// </summary>
         public void SwitchToMinimapMode()
         {
             _isDraggable = false;
 
-            // ✅ Canvas 크기 기준 중앙 좌표 계산 (해상도 독립적!)
-            RectTransform canvasRect = parentCanvas.GetComponent<RectTransform>();
-            Vector2 canvasSize = canvasRect.sizeDelta;
+            // ✅ FHD 기준 해상도
+            Vector2 referenceFHD = new Vector2(1920f, 1080f);
 
-            // 중앙 좌표 = Canvas 크기의 절반
-            Vector3 centerPosition = new Vector3(canvasSize.x / 2f, canvasSize.y / 2f, 0);
+            // ✅ 실제 화면 해상도
+            Vector2 actualScreenSize = new Vector2(Screen.width, Screen.height);
 
-            // 미니맵 위치 = 중앙 + 오프셋
-            Vector3 targetPosition = centerPosition + (Vector3)minimapOffsetFromCenter;
+            // ✅ 해상도 비율 계산
+            Vector2 resolutionScale = new Vector2(
+                actualScreenSize.x / referenceFHD.x,
+                actualScreenSize.y / referenceFHD.y
+            );
 
-            LogInfo($"Canvas 크기: {canvasSize}, 중앙: {centerPosition}, 미니맵 위치: {targetPosition}");
+            // ✅ FHD 기준 오프셋에 비율 적용
+            Vector2 scaledOffset = new Vector2(
+                minimapOffsetFromCenter.x * resolutionScale.x,
+                minimapOffsetFromCenter.y * resolutionScale.y
+            );
+
+            // ✅ Screen 해상도 기준 중앙 좌표 (Canvas가 아님!)
+            Vector3 centerPosition = new Vector3(actualScreenSize.x / 2f, actualScreenSize.y / 2f, 0);
+
+            // 최종 목표 위치
+            Vector3 targetPosition = centerPosition + new Vector3(scaledOffset.x, scaledOffset.y, 0);
+
+            LogInfo($"실제 화면: {actualScreenSize}");
+            LogInfo($"해상도 비율: {resolutionScale}, 스케일된 오프셋: {scaledOffset}");
+            LogInfo($"중앙 좌표: {centerPosition}, 목표 위치: {targetPosition}");
 
             StopAllCoroutines();
             StartCoroutine(AnimateToMinimap(
@@ -206,10 +222,11 @@ namespace Views.MonitorA
         {
             _isDraggable = true;
 
-            // ✅ Canvas 크기 기준 중앙 좌표 (해상도 독립적!)
-            RectTransform canvasRect = parentCanvas.GetComponent<RectTransform>();
-            Vector2 canvasSize = canvasRect.sizeDelta;
-            Vector3 centerPosition = new Vector3(canvasSize.x / 2f, canvasSize.y / 2f, 0);
+            // ✅ Screen 해상도 기준 중앙
+            Vector2 actualScreenSize = new Vector2(Screen.width, Screen.height);
+            Vector3 centerPosition = new Vector3(actualScreenSize.x / 2f, actualScreenSize.y / 2f, 0);
+
+            LogInfo($"전체 화면 중앙: {centerPosition}");
 
             StopAllCoroutines();
             StartCoroutine(AnimateToMinimap(

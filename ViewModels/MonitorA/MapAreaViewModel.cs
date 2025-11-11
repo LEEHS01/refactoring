@@ -42,6 +42,7 @@ namespace HNS.MonitorA.ViewModels
         public AreaInfoEvent OnAreaInfoLoaded = new AreaInfoEvent();
         public ObsMarkerListEvent OnObservatoriesLoaded = new ObsMarkerListEvent();
         public ErrorEvent OnError = new ErrorEvent();
+        public UnityEvent OnAreaCleared = new UnityEvent();  // ✅ 이 줄 추가!
         #endregion
 
         #region Unity Lifecycle
@@ -101,6 +102,27 @@ namespace HNS.MonitorA.ViewModels
                 StartCoroutine(LoadAreaDataCoroutine(_currentAreaId));
             }
         }
+
+        /// <summary>
+        /// 지역 데이터 초기화 (HOME으로 돌아갈 때)
+        /// </summary>
+        public void ClearAreaData()  // ✅ 이 메서드 전체 추가!
+        {
+            Debug.Log($"[MapAreaViewModel] 지역 데이터 초기화: 이전 AreaId={_currentAreaId}");
+
+            // 데이터 초기화
+            _currentAreaId = -1;
+            _currentAreaInfo = null;
+            _currentObservatories = null;
+
+            // 진행 중인 코루틴 중단
+            StopAllCoroutines();
+
+            // 이벤트 발행
+            OnAreaCleared?.Invoke();
+
+            Debug.Log("[MapAreaViewModel] 지역 데이터 초기화 완료 - HOME 상태로 복귀");
+        }
         #endregion
 
         #region Private Methods - Coroutines
@@ -126,7 +148,7 @@ namespace HNS.MonitorA.ViewModels
                 {
                     Debug.LogError($"[MapAreaViewModel] 지역 정보 로드 실패: {error}");
                     OnError?.Invoke($"지역 정보 로드 실패: {error}");
-                    areaInfoLoaded = true; // 에러라도 다음 단계로
+                    areaInfoLoaded = true;
                 }
             );
 
@@ -175,6 +197,11 @@ namespace HNS.MonitorA.ViewModels
         /// 현재 관측소 리스트
         /// </summary>
         public List<ObsMarkerData> CurrentObservatories => _currentObservatories;
+
+        /// <summary>
+        /// 지역이 선택되어 있는지 여부
+        /// </summary>
+        public bool IsAreaSelected => _currentAreaId > 0;
         #endregion
     }
 }
