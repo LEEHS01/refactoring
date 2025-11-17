@@ -18,7 +18,7 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
         #region Inspector 설정
 
         [Header("UI Components")]
-        [SerializeField] private CanvasGroup canvasGroup;  
+        [SerializeField] private CanvasGroup canvasGroup;
 
         [Header("Chart Container")]
         [SerializeField] private RectTransform chartRectTransform;
@@ -52,6 +52,18 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
         private Vector3 _visiblePosition;
         private Vector3 _hiddenPosition;
         private List<Transform> _histogramMonths; // 12개월 Transform 캐싱
+
+        #endregion
+
+        #region Unity Lifecycle Override
+
+        // ⭐ BaseView의 OnDisable을 오버라이드하여 이벤트 구독 유지
+        protected override void OnDisable()
+        {
+            LogInfo("OnDisable 호출 - 이벤트 구독 유지 (오버라이드)");
+            // ❌ base.OnDisable() 호출하지 않음!
+            // 이벤트 구독을 해제하지 않고 유지
+        }
 
         #endregion
 
@@ -174,9 +186,9 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
             AreaAlarmChartViewModel.Instance.OnChartDataLoaded.AddListener(OnChartDataLoaded);
             AreaAlarmChartViewModel.Instance.OnError.AddListener(OnError);
 
-            LogInfo("ViewModel 이벤트 구독 완료");
-            LogInfo("========================================");
+            LogInfo("AreaAlarmChartViewModel 이벤트 구독 완료");
 
+            // ⭐ Area3DViewModel 이벤트 구독
             if (Area3DViewModel.Instance != null)
             {
                 Area3DViewModel.Instance.OnObservatoryLoaded.AddListener(OnObservatoryOpened);
@@ -187,6 +199,8 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
             {
                 LogWarning("Area3DViewModel.Instance가 null입니다!");
             }
+
+            LogInfo("========================================");
         }
 
         protected override void DisconnectFromViewModel()
@@ -197,6 +211,14 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
                 AreaAlarmChartViewModel.Instance.OnAreaExited.RemoveListener(OnAreaExited);
                 AreaAlarmChartViewModel.Instance.OnChartDataLoaded.RemoveListener(OnChartDataLoaded);
                 AreaAlarmChartViewModel.Instance.OnError.RemoveListener(OnError);
+            }
+
+            // ⭐ Area3DViewModel 이벤트 구독 해제 추가!
+            if (Area3DViewModel.Instance != null)
+            {
+                Area3DViewModel.Instance.OnObservatoryLoaded.RemoveListener(OnObservatoryOpened);
+                Area3DViewModel.Instance.OnObservatoryClosed.RemoveListener(OnObservatoryClosed);
+                LogInfo("Area3DViewModel 이벤트 구독 해제 완료");
             }
         }
 
@@ -216,42 +238,37 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
         {
             LogInfo("========================================");
             LogInfo($"OnAreaEntered 호출됨! AreaId={areaId}");
-            LogInfo($"GameObject 활성화 상태: {gameObject.activeSelf}");
-            LogInfo($"CanvasGroup null 체크: {canvasGroup == null}");
 
             if (canvasGroup == null)
             {
-                LogError(" CanvasGroup이 null입니다!");
+                LogError("CanvasGroup이 null입니다!");
                 return;
             }
 
-            // CanvasGroup alpha 0에서 시작 (보이지 않는 상태)
-            LogInfo("CanvasGroup 초기화 (alpha=0)");
+            // ⭐ 기존 애니메이션 중지
+            chartRectTransform.DOKill();
+            canvasGroup.DOKill();
+
+            // CanvasGroup alpha 0에서 시작
             canvasGroup.alpha = 0f;
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
 
             // 초기 위치를 숨김 위치로 설정
-            LogInfo($"차트 위치를 숨김 위치로 이동: {_hiddenPosition}");
             chartRectTransform.anchoredPosition = _hiddenPosition;
 
             // 위치 애니메이션
-            LogInfo($"위치 애니메이션 시작: {_hiddenPosition} → {_visiblePosition}");
             chartRectTransform
                 .DOAnchorPos(_visiblePosition, animationDuration)
-                .SetEase(Ease.OutQuad)
-                .OnComplete(() => LogInfo("위치 애니메이션 완료"));
+                .SetEase(Ease.OutQuad);
 
             // CanvasGroup 페이드 인 애니메이션
-            LogInfo("페이드 인 애니메이션 시작");
             canvasGroup.DOFade(1f, animationDuration)
-                .OnUpdate(() => LogInfo($"페이드 진행 중... Alpha={canvasGroup.alpha:F2}"))
                 .OnComplete(() =>
                 {
                     canvasGroup.interactable = true;
                     canvasGroup.blocksRaycasts = true;
-                    LogInfo($"차트 표시 완료! Alpha={canvasGroup.alpha}");
-                    LogInfo("========================================");
+                    LogInfo("차트 표시 완료!");
                 });
         }
 
@@ -260,7 +277,6 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
         /// </summary>
         private void OnAreaExited()
         {
-            LogInfo("========================================");
             LogInfo("OnAreaExited 호출됨!");
 
             if (canvasGroup == null)
@@ -269,43 +285,51 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
                 return;
             }
 
+            // ⭐ 기존 애니메이션 중지
+            chartRectTransform.DOKill();
+            canvasGroup.DOKill();
+
             // 위치 애니메이션
-            LogInfo($"위치 애니메이션 시작: {_visiblePosition} → {_hiddenPosition}");
             chartRectTransform
                 .DOAnchorPos(_hiddenPosition, animationDuration)
-                .SetEase(Ease.InQuad)
-                .OnComplete(() => LogInfo("위치 애니메이션 완료"));
+                .SetEase(Ease.InQuad);
 
             // CanvasGroup 페이드 아웃
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
 
-            LogInfo("페이드 아웃 애니메이션 시작");
             canvasGroup.DOFade(0f, animationDuration)
-                .OnUpdate(() => LogInfo($"페이드 진행 중... Alpha={canvasGroup.alpha:F2}"))
                 .OnComplete(() =>
                 {
-                    LogInfo($"차트 숨김 완료! Alpha={canvasGroup.alpha}");
-                    LogInfo($"GameObject는 active 유지: {gameObject.activeSelf}");
-                    LogInfo("========================================");
+                    LogInfo("차트 숨김 완료!");
                 });
         }
 
         /// <summary>
-        /// 관측소 열림 → 차트 숨김 (즉시)
+        /// 관측소 열림 → 차트는 그대로 유지 (관측소 화면에서도 차트 보임)
         /// </summary>
         private void OnObservatoryOpened(int obsId)
         {
             LogInfo($"관측소 열림: ObsId={obsId} - 차트 즉시 숨김");
+
+            // ⭐ 기존 애니메이션 중지
+            chartRectTransform.DOKill();
+            canvasGroup.DOKill();
+
             HideChart();
         }
 
         /// <summary>
-        /// 관측소 닫힘 → 차트 표시 (애니메이션)
+        /// 관측소 닫힘 → 차트 그대로 유지 (이미 표시 중)
         /// </summary>
         private void OnObservatoryClosed()
         {
             LogInfo("관측소 닫힘 - 차트 다시 표시");
+
+            // ⭐ 기존 애니메이션 중지
+            chartRectTransform.DOKill();
+            canvasGroup.DOKill();
+
             ShowChartAnimated();
         }
 
@@ -321,20 +345,22 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
             }
 
             LogInfo($"차트 데이터 수신: {data.AreaName}");
+
+            // ⭐ 막대 애니메이션 중지
+            if (_histogramMonths != null)
+            {
+                foreach (var month in _histogramMonths)
+                {
+                    if (month != null)
+                    {
+                        month.DOKill(true); // 모든 자식의 애니메이션도 중지
+                    }
+                }
+            }
+
             UpdateChartData(data);
         }
 
-        /// <summary>
-        /// 에러 핸들러
-        /// </summary>
-        private void OnError(string errorMessage)
-        {
-            LogError($"ViewModel 에러: {errorMessage}");
-        }
-
-        /// <summary>
-        /// 차트 표시 (애니메이션)
-        /// </summary>
         private void ShowChartAnimated()
         {
             if (canvasGroup == null)
@@ -343,8 +369,8 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
                 return;
             }
 
-            // 현재 위치에서 시작
-            // (이미 데이터가 로드되어 있으므로 바로 표시)
+            // ⭐ 기존 애니메이션 중지 (이미 위에서 했지만 안전장치)
+            canvasGroup.DOKill();
 
             // CanvasGroup 페이드 인 애니메이션
             canvasGroup.DOFade(1f, animationDuration)
@@ -356,6 +382,13 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
                 });
         }
 
+        /// <summary>
+        /// 에러 핸들러
+        /// </summary>
+        private void OnError(string errorMessage)
+        {
+            LogError($"ViewModel 에러: {errorMessage}");
+        }
 
         #endregion
 
@@ -564,7 +597,7 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
 
         private void LogInfo(string message)
         {
-            //Debug.Log($"[AreaAlarmChartView] {message}");
+            Debug.Log($"[AreaAlarmChartView] {message}");
         }
 
         private void LogError(string message)

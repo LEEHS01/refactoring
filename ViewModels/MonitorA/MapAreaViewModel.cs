@@ -42,7 +42,7 @@ namespace HNS.MonitorA.ViewModels
         public AreaInfoEvent OnAreaInfoLoaded = new AreaInfoEvent();
         public ObsMarkerListEvent OnObservatoriesLoaded = new ObsMarkerListEvent();
         public ErrorEvent OnError = new ErrorEvent();
-        public UnityEvent OnAreaCleared = new UnityEvent(); 
+        public UnityEvent OnAreaCleared = new UnityEvent();
         #endregion
 
         #region Unity Lifecycle
@@ -79,15 +79,27 @@ namespace HNS.MonitorA.ViewModels
         /// </summary>
         public void LoadAreaData(int areaId)
         {
-            if (_currentAreaId == areaId)
+            Debug.Log($"[MapAreaViewModel] 지역 데이터 로드 시작: AreaId={areaId}");
+
+            // ✅ 이미 로드된 지역이어도 이벤트는 발생시킴 (UI 복원용)
+            if (_currentAreaId == areaId && _currentAreaInfo != null)
             {
-                Debug.Log($"[MapAreaViewModel] 이미 로드된 지역입니다: AreaId={areaId}");
+                Debug.Log($"[MapAreaViewModel] 이미 로드된 지역입니다: AreaId={areaId} - 캐시 데이터 사용");
+
+                // ⭐ 캐시된 데이터로 이벤트 발생 (MapAreaView가 AreaListTypeView를 숨기기 위해 필요)
+                OnAreaInfoLoaded?.Invoke(_currentAreaInfo);
+
+                if (_currentObservatories != null && _currentObservatories.Count > 0)
+                {
+                    OnObservatoriesLoaded?.Invoke(_currentObservatories);
+                    Debug.Log($"[MapAreaViewModel] 캐시된 관측소 데이터 이벤트 발생: {_currentObservatories.Count}개");
+                }
+
                 return;
             }
 
-            Debug.Log($"[MapAreaViewModel] 지역 데이터 로드 시작: AreaId={areaId}");
+            // 새 지역 데이터 로딩
             _currentAreaId = areaId;
-
             StartCoroutine(LoadAreaDataCoroutine(areaId));
         }
 
@@ -106,9 +118,16 @@ namespace HNS.MonitorA.ViewModels
         /// <summary>
         /// 지역 데이터 초기화 (HOME으로 돌아갈 때)
         /// </summary>
-        public void ClearAreaData() 
+        public void ClearAreaData()
         {
             Debug.Log($"[MapAreaViewModel] 지역 데이터 초기화: 이전 AreaId={_currentAreaId}");
+
+            // ⭐ 3D 관측소가 활성화되어 있으면 먼저 정리
+            if (Area3DViewModel.Instance != null && Area3DViewModel.Instance.IsObservatoryActive)
+            {
+                Area3DViewModel.Instance.CloseObservatory();
+                Debug.Log("[MapAreaViewModel] 3D 관측소 자동 정리");
+            }
 
             // 데이터 초기화
             _currentAreaId = -1;

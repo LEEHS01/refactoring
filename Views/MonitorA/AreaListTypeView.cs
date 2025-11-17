@@ -11,7 +11,6 @@ namespace HNS.MonitorA.Views
 {
     /// <summary>
     /// 지역별 관측소 현황 View
-    /// Monitor B의 SensorView 패턴 참고
     /// </summary>
     public class AreaListTypeView : MonoBehaviour
     {
@@ -30,12 +29,13 @@ namespace HNS.MonitorA.Views
 
         private List<AreaListTypeItemView> itemViews = new();
         private Vector3 defaultPos;
+        private bool isInitialized = false; // ⭐ 추가
 
         #endregion
 
         #region Unity Lifecycle
 
-        private void Start()
+        private void Awake() // ⭐ Start → Awake 변경
         {
             // 컴포넌트 초기화
             InitializeComponents();
@@ -43,8 +43,16 @@ namespace HNS.MonitorA.Views
             // ViewModel 이벤트 구독
             SubscribeToViewModel();
 
-            // 초기 데이터 요청
-            RequestInitialData();
+            isInitialized = true;
+        }
+
+        private void OnEnable() // ⭐ 추가: 활성화될 때마다
+        {
+            // 초기화 완료 후에만 데이터 요청
+            if (isInitialized)
+            {
+                RequestInitialData();
+            }
         }
 
         private void OnDestroy()
@@ -130,6 +138,7 @@ namespace HNS.MonitorA.Views
             if (AreaListTypeViewModel.Instance != null)
             {
                 AreaListTypeViewModel.Instance.RefreshAreasByType(areaType);
+                LogInfo($"데이터 요청: {areaType}");
             }
         }
 
@@ -137,26 +146,19 @@ namespace HNS.MonitorA.Views
 
         #region 렌더링 (Object Pooling)
 
-        /// <summary>
-        /// 지역 데이터 렌더링 (Monitor B 패턴)
-        /// Object Pooling: 미리 생성된 아이템들을 활성화/비활성화
-        /// </summary>
         private void RenderAreas(List<AreaListModel> areas)
         {
             LogInfo($"지역 렌더링: {areas.Count}개");
 
-            // Object Pooling: 활성화/비활성화만!
             for (int i = 0; i < itemViews.Count; i++)
             {
                 if (i < areas.Count)
                 {
-                    // 데이터 있음 → 활성화 + 바인딩
                     itemViews[i].gameObject.SetActive(true);
                     itemViews[i].Bind(areas[i]);
                 }
                 else
                 {
-                    // 데이터 없음 → 비활성화
                     itemViews[i].gameObject.SetActive(false);
                 }
             }
