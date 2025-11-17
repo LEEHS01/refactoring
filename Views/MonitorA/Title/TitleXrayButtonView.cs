@@ -52,7 +52,7 @@ namespace HNS.MonitorA.Views
 
         private void OnClick()
         {
-            Debug.Log($"🔍 X-Ray 버튼 클릭: {xrayType}");
+            Debug.Log($" X-Ray 버튼 클릭: {xrayType}");
             // TODO: X-Ray 토글 로직 구현
             // - GetXrayTarget()로 대상 오브젝트 찾기
             // - SetActive() 토글

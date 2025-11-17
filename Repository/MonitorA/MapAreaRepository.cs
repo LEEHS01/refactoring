@@ -9,7 +9,7 @@ using UnityEngine;
 
 //  명시적으로 Models의 타입 사용
 using AlarmLogModel = Models.AlarmLogModel;
-using ObservatoryModel = Models.MonitorB.ObservatoryModel;  // ⭐ 추가!
+using ObservatoryModel = Models.MonitorB.ObservatoryModel;
 
 namespace HNS.MonitorA.Repositories
 {

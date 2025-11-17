@@ -67,7 +67,7 @@ namespace HNS.MonitorA.ViewModels
             // Repository 초기화
             repository = new AreaRepository();
 
-            // ⭐ FindObjectOfType으로 찾기
+            // FindObjectOfType으로 찾기
             schedulerService = FindFirstObjectByType<SchedulerService>();
 
             if (schedulerService == null)
@@ -99,10 +99,10 @@ namespace HNS.MonitorA.ViewModels
         {
             if (schedulerService == null) return;
 
-            // ⭐ 알람 발생 시: 즉시 업데이트
+            // 알람 발생 시: 즉시 업데이트
             schedulerService.OnAlarmDetected += OnAlarmChanged;
 
-            // ⭐ 알람 해제 시: 즉시 업데이트
+            // 알람 해제 시: 즉시 업데이트
             schedulerService.OnAlarmCancelled += OnAlarmChanged;
 
             LogInfo("알람 이벤트 구독 완료");

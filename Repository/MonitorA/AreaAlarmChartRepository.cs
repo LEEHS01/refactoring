@@ -86,7 +86,7 @@ namespace HNS.MonitorA.Repositories
             List<AlarmSummaryDbModel> alarmSummaries = null;
             bool alarmCompleted = false;
 
-            // ⭐ 일단 ExecuteProcedure로 시도!
+            // 일단 ExecuteProcedure로 시도!
             yield return Database.ExecuteProcedure<AlarmSummaryDbModel>(
                 "GET_ALARM_SUMMARY",
                 parameters,

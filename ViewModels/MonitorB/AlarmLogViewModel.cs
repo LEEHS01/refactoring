@@ -1,6 +1,6 @@
 ﻿using Models;
 using Services;
-using Repositories.MonitorB;  // ⭐ 추가
+using Repositories.MonitorB;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -11,7 +11,7 @@ namespace ViewModels.MonitorB
     {
         public static AlarmLogViewModel Instance { get; private set; }
 
-        // ⭐ Repository 추가
+        // Repository 추가
         private AlarmLogRepository repository = new AlarmLogRepository();
 
         public List<AlarmLogData> AllLogs { get; private set; } = new List<AlarmLogData>();
@@ -19,7 +19,7 @@ namespace ViewModels.MonitorB
 
         public event System.Action OnLogsChanged;
 
-        // ⭐ 필터 상태 저장
+        // 필터 상태 저장
         private string currentAreaFilter = null;
         private int? currentStatusFilter = null;
 
@@ -59,11 +59,11 @@ namespace ViewModels.MonitorB
 
             Debug.Log("[AlarmLogViewModel] 알람 로그 로드 시작");
 
-            // ⭐ 변경: Repository 사용
+            // 변경: Repository 사용
             StartCoroutine(repository.GetHistoricalAlarmLogs(OnLoadSuccess, OnLoadFailed));
         }
 
-        // ⭐ 성공 콜백
+        // 성공 콜백
         private void OnLoadSuccess(List<AlarmLogModel> models)
         {
             if (models == null)
@@ -97,7 +97,7 @@ namespace ViewModels.MonitorB
             Debug.Log($"[AlarmLogViewModel] 데이터 로드 완료: {AllLogs.Count}개");
         }
 
-        // ⭐ 실패 콜백
+        // 실패 콜백
         private void OnLoadFailed(string error)
         {
             Debug.LogError($"[AlarmLogViewModel] 데이터 로드 실패: {error}");

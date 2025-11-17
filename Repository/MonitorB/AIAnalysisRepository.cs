@@ -66,7 +66,7 @@ namespace Repositories.MonitorB
 
                 Debug.Log($"[AIAnalysisRepository] 쿼리 결과 길이: {result.Length}자");
 
-                // ⭐ JSON 파싱 (ChartDataPoint 사용)
+                // JSON 파싱 (ChartDataPoint 사용)
                 var wrappedJson = "{\"items\":" + result + "}";
                 var response = JsonUtility.FromJson<ChartDataResponse>(wrappedJson);
 
@@ -78,7 +78,7 @@ namespace Repositories.MonitorB
 
                 Debug.Log($"[AIAnalysisRepository] 전체 데이터: {response.items.Count}개");
 
-                // ⭐ boardIdx, hnsIdx로 필터링 (PascalCase 프로퍼티 사용)
+                // boardIdx, hnsIdx로 필터링 (PascalCase 프로퍼티 사용)
                 var sensorData = response.items
                     .Where(d => d.boardIdx == boardId && d.hnsIdx == hnsId)
                     .OrderBy(d => d.time)
@@ -103,7 +103,7 @@ namespace Repositories.MonitorB
 
                 foreach (var item in sensorData)
                 {
-                    // ⭐ value, aiValue 프로퍼티 사용
+                    // value, aiValue 프로퍼티 사용
                     float measuredValue = item.value;
                     float aiValue = item.aiValue;
                     float differenceValue = measuredValue - aiValue;
@@ -144,7 +144,7 @@ namespace Repositories.MonitorB
             }
         }
 
-        // ⭐ ChartDataPoint 사용
+        // ChartDataPoint 사용
         [Serializable]
         private class ChartDataResponse
         {

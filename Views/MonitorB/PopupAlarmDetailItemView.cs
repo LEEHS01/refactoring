@@ -21,10 +21,10 @@ namespace Views.MonitorB
         [SerializeField] private RectTransform chartBoundsArea;
 
         private ChartLineRenderer chartRenderer;
-        // 추가: 현재 데이터 저장
+        // 현재 데이터 저장
         private AlarmSensorData currentData;
 
-        // 추가: 클릭 이벤트 (boardId, hnsId, obsId 전달)
+        // 클릭 이벤트 (boardId, hnsId, obsId 전달)
         public event Action<int, int, int> OnItemClicked;
 
         private void Awake()
@@ -95,7 +95,7 @@ namespace Views.MonitorB
                 imgStatus.color = GetStatusColor(data.Status);
             }
 
-            // ⭐ 추가: 차트 그리기
+            // 추가: 차트 그리기
             UpdateMiniChart(data);
         }
 
@@ -153,7 +153,7 @@ namespace Views.MonitorB
 
         /// <summary>
         /// 아이템 클릭 시 - PopUpToxinDetail2 팝업 오픈
-        /// ⭐ obsId, boardId, hnsId 전달
+        /// obsId, boardId, hnsId 전달
         /// </summary>
         private void OnClick()
         {
@@ -161,7 +161,7 @@ namespace Views.MonitorB
             {
                 Debug.Log($"🖱센서 아이템 클릭: {currentData.SensorName} (Board={currentData.BoardId}, HNS={currentData.HnsId})");
 
-                // ⭐ obsId는 AlarmDetailViewModel에서 가져와야 함
+                // obsId는 AlarmDetailViewModel에서 가져와야 함
                 // 일단 0으로 전달하고, View에서 처리
                 OnItemClicked?.Invoke(currentData.BoardId, currentData.HnsId, 0);
             }

@@ -1,12 +1,14 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using System;
 
 namespace Core
 {
     /// <summary>
-    /// ¸ğµç ViewÀÇ º£ÀÌ½º Å¬·¡½º
-    /// MonoBehaviour·Î ±¸ÇöÇÏ¿© GameObject¿¡ ºÎÂø
-    /// UI ÃÊ±âÈ­, ÀÌº¥Æ® ¿¬°á, °ËÁõ µîÀÇ °øÅë ·ÎÁ÷ Á¦°ø
+    /// ëª¨ë“  Viewì˜ ë² ì´ìŠ¤ í´ë˜ìŠ¤
+    /// MonoBehaviourë¡œ êµ¬í˜„í•˜ì—¬ GameObjectì— ë¶€ì°©
+    /// UI ì´ˆê¸°í™”, ì´ë²¤íŠ¸ ì—°ê²°, ê²€ì¦ ë“±ì˜ ê³µí†µ ë¡œì§ ì œê³µ
+    /// 
+    /// â­ ìµœì¢… ì™„ë²½ ë²„ì „: ëª¨ë“  íƒ€ì´ë° ë¬¸ì œ í•´ê²°
     /// </summary>
     public abstract class BaseView : MonoBehaviour
     {
@@ -15,20 +17,77 @@ namespace Core
 
         public bool IsViewInitialized => _isViewInitialized;
 
-        #region Unity »ı¸íÁÖ±â
+        #region Unity ìƒëª…ì£¼ê¸°
 
         /// <summary>
-        /// GameObject°¡ È°¼ºÈ­µÉ ¶§ È£Ãâ
+        /// Startì—ì„œ ì´ˆê¸°í™” (GameObjectê°€ ì²˜ìŒë¶€í„° í™œì„±í™”ëœ ê²½ìš°)
+        /// </summary>
+        protected virtual void Start()
+        {
+            // ì´ë¯¸ ì´ˆê¸°í™”ë˜ì—ˆìœ¼ë©´ ìŠ¤í‚µ
+            if (_isViewInitialized)
+                return;
+
+            TryInitialize();
+        }
+
+        /// <summary>
+        /// GameObjectê°€ í™œì„±í™”ë  ë•Œ í˜¸ì¶œ
+        /// â­ í•µì‹¬: í•­ìƒ ì´ˆê¸°í™” ì‹œë„
         /// </summary>
         protected virtual void OnEnable()
         {
-            if (AppInitializer.IsInitialized)
+            // ì´ˆê¸°í™” ì‹œë„ (ì•„ì§ ì•ˆ ë˜ì—ˆìœ¼ë©´ ì´ˆê¸°í™”, ì´ë¯¸ ë˜ì—ˆìœ¼ë©´ ì´ë²¤íŠ¸ ì¬êµ¬ë…)
+            if (!_isViewInitialized)
             {
-                if (!_isViewInitialized)
-                    InitializeView();
+                TryInitialize();
             }
             else
             {
+                ReconnectEvents();
+            }
+        }
+
+        /// <summary>
+        /// GameObjectê°€ ë¹„í™œì„±í™”ë  ë•Œ í˜¸ì¶œ
+        /// </summary>
+        protected virtual void OnDisable()
+        {
+            // ì´ˆê¸°í™”ê°€ ì™„ë£Œëœ ê²½ìš°ì—ë§Œ ì´ë²¤íŠ¸ í•´ì œ
+            if (_isViewInitialized)
+            {
+                DisconnectEvents();
+            }
+        }
+
+        /// <summary>
+        /// GameObjectê°€ íŒŒê´´ë  ë•Œ í˜¸ì¶œ
+        /// </summary>
+        protected virtual void OnDestroy()
+        {
+            if (_isViewInitialized)
+            {
+                CleanupView();
+            }
+        }
+
+        #endregion
+
+        #region ì´ˆê¸°í™”
+
+        /// <summary>
+        /// ì´ˆê¸°í™” ì‹œë„
+        /// </summary>
+        private void TryInitialize()
+        {
+            // AppInitializerê°€ ì¤€ë¹„ë˜ì—ˆìœ¼ë©´ ë°”ë¡œ ì´ˆê¸°í™”
+            if (AppInitializer.IsInitialized)
+            {
+                InitializeView();
+            }
+            else
+            {
+                // AppInitializer ì™„ë£Œ ëŒ€ê¸°
                 AppInitializer.OnInitializationComplete += OnAppInitialized;
             }
         }
@@ -36,141 +95,165 @@ namespace Core
         private void OnAppInitialized()
         {
             AppInitializer.OnInitializationComplete -= OnAppInitialized;
-            if (!_isViewInitialized)
-                InitializeView();
+            InitializeView();
         }
 
         /// <summary>
-        /// GameObject°¡ ºñÈ°¼ºÈ­µÉ ¶§ È£Ãâ
-        /// </summary>
-        protected virtual void OnDisable()
-        {
-            AppInitializer.OnInitializationComplete -= OnAppInitialized;
-
-            if (_isViewInitialized)
-                CleanupView();
-        }
-
-        #endregion
-
-        #region View ÃÊ±âÈ­ ¹× Á¤¸®
-
-        /// <summary>
-        /// View ÃÊ±âÈ­
+        /// View ì´ˆê¸°í™” (1íšŒë§Œ)
         /// </summary>
         protected virtual void InitializeView()
         {
             try
             {
-                LogInfo("View ÃÊ±âÈ­ ½ÃÀÛ...");
+                LogInfo("View ì´ˆê¸°í™” ì‹œì‘...");
 
-                // 1. UI ÄÄÆ÷³ÍÆ® ÃÊ±âÈ­
+                // 1. UI ì»´í¬ë„ŒíŠ¸ ì´ˆê¸°í™”
                 InitializeUIComponents();
 
-                // 2. ÀÌº¥Æ® ¿¬°á
-                SetupViewEvents();
-
-                // 3. ViewModel ¿¬°á (¼­ºêÅ¬·¡½º¿¡¼­ ±¸Çö)
-                ConnectToViewModel();
-
                 _isViewInitialized = true;
-                LogInfo("View ÃÊ±âÈ­ ¿Ï·á");
+                LogInfo("View ì´ˆê¸°í™” ì™„ë£Œ");
+
+                // 2. ì´ë²¤íŠ¸ ì—°ê²°
+                ReconnectEvents();
             }
             catch (Exception ex)
             {
-                LogError($"View ÃÊ±âÈ­ ½ÇÆĞ: {ex.Message}");
+                LogError($"View ì´ˆê¸°í™” ì‹¤íŒ¨: {ex.Message}\n{ex.StackTrace}");
                 _isViewInitialized = false;
             }
         }
 
         /// <summary>
-        /// View Á¤¸®
+        /// ì´ë²¤íŠ¸ ì¬ì—°ê²° (OnEnableì—ì„œ í˜¸ì¶œ)
+        /// </summary>
+        protected virtual void ReconnectEvents()
+        {
+            try
+            {
+                LogInfo("ì´ë²¤íŠ¸ ì¬ì—°ê²° ì‹œì‘...");
+
+                // 1. View ì´ë²¤íŠ¸ ì—°ê²°
+                SetupViewEvents();
+
+                // 2. ViewModel ì—°ê²°
+                ConnectToViewModel();
+
+                LogInfo("ì´ë²¤íŠ¸ ì¬ì—°ê²° ì™„ë£Œ");
+            }
+            catch (Exception ex)
+            {
+                LogError($"ì´ë²¤íŠ¸ ì¬ì—°ê²° ì‹¤íŒ¨: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// ì´ë²¤íŠ¸ ì—°ê²° í•´ì œ (OnDisableì—ì„œ í˜¸ì¶œ)
+        /// </summary>
+        protected virtual void DisconnectEvents()
+        {
+            try
+            {
+                LogInfo("ì´ë²¤íŠ¸ í•´ì œ ì‹œì‘...");
+
+                // 1. View ì´ë²¤íŠ¸ ì—°ê²° í•´ì œ
+                DisconnectViewEvents();
+
+                // 2. ViewModel ì—°ê²° í•´ì œ
+                DisconnectFromViewModel();
+
+                LogInfo("ì´ë²¤íŠ¸ í•´ì œ ì™„ë£Œ");
+            }
+            catch (Exception ex)
+            {
+                LogError($"ì´ë²¤íŠ¸ í•´ì œ ì‹¤íŒ¨: {ex.Message}\n{ex.StackTrace}");
+            }
+        }
+
+        /// <summary>
+        /// View ì •ë¦¬ (OnDestroyì—ì„œ í˜¸ì¶œ)
         /// </summary>
         protected virtual void CleanupView()
         {
             try
             {
-                LogInfo("View Á¤¸® ½ÃÀÛ...");
+                LogInfo("View ì •ë¦¬ ì‹œì‘...");
 
-                // 1. ÀÌº¥Æ® ¿¬°á ÇØÁ¦
-                DisconnectViewEvents();
-
-                // 2. ViewModel ¿¬°á ÇØÁ¦
-                DisconnectFromViewModel();
+                // AppInitializer ì´ë²¤íŠ¸ í•´ì œ
+                AppInitializer.OnInitializationComplete -= OnAppInitialized;
 
                 _isViewInitialized = false;
-                LogInfo("View Á¤¸® ¿Ï·á");
+                LogInfo("View ì •ë¦¬ ì™„ë£Œ");
             }
             catch (Exception ex)
             {
-                LogError($"View Á¤¸® ½ÇÆĞ: {ex.Message}");
+                LogError($"View ì •ë¦¬ ì‹¤íŒ¨: {ex.Message}\n{ex.StackTrace}");
             }
         }
 
         #endregion
 
-        #region ¼­ºêÅ¬·¡½º¿¡¼­ ±¸ÇöÇÒ Ãß»ó ¸Ş¼­µå
+        #region ì„œë¸Œí´ë˜ìŠ¤ì—ì„œ êµ¬í˜„í•  ì¶”ìƒ ë©”ì„œë“œ
 
         /// <summary>
-        /// UI ÄÄÆ÷³ÍÆ® ÃÊ±âÈ­ - ¼­ºêÅ¬·¡½º¿¡¼­ ¹İµå½Ã ±¸Çö
-        /// Inspector¿¡¼­ ¿¬°áµÈ UI ¿ä¼ÒµéÀ» ÃÊ±âÈ­
+        /// UI ì»´í¬ë„ŒíŠ¸ ì´ˆê¸°í™” - ì„œë¸Œí´ë˜ìŠ¤ì—ì„œ ë°˜ë“œì‹œ êµ¬í˜„
+        /// Inspectorì—ì„œ ì—°ê²°ëœ UI ìš”ì†Œë“¤ì„ ì´ˆê¸°í™”
         /// </summary>
         protected abstract void InitializeUIComponents();
 
         /// <summary>
-        /// View ÀÌº¥Æ® ¼³Á¤ - ¼­ºêÅ¬·¡½º¿¡¼­ ¹İµå½Ã ±¸Çö
-        /// Button Å¬¸¯ µîÀÇ UI ÀÌº¥Æ® ¸®½º³Ê µî·Ï
+        /// View ì´ë²¤íŠ¸ ì„¤ì • - ì„œë¸Œí´ë˜ìŠ¤ì—ì„œ ë°˜ë“œì‹œ êµ¬í˜„
+        /// Button í´ë¦­ ë“±ì˜ UI ì´ë²¤íŠ¸ ë¦¬ìŠ¤ë„ˆ ë“±ë¡
         /// </summary>
         protected abstract void SetupViewEvents();
 
         /// <summary>
-        /// ViewModel°ú ¿¬°á - ¼­ºêÅ¬·¡½º¿¡¼­ ±¸Çö
-        /// ViewModelÀÇ µ¥ÀÌÅÍ º¯°æ ÀÌº¥Æ®¸¦ ±¸µ¶
+        /// ViewModelê³¼ ì—°ê²° - ì„œë¸Œí´ë˜ìŠ¤ì—ì„œ êµ¬í˜„
+        /// ViewModelì˜ ë°ì´í„° ë³€ê²½ ì´ë²¤íŠ¸ë¥¼ êµ¬ë…
         /// </summary>
         protected virtual void ConnectToViewModel()
         {
-            // ¼­ºêÅ¬·¡½º¿¡¼­ overrideÇÏ¿© ±¸Çö
+            // ì„œë¸Œí´ë˜ìŠ¤ì—ì„œ overrideí•˜ì—¬ êµ¬í˜„
         }
 
         #endregion
 
-        #region ¼­ºêÅ¬·¡½º¿¡¼­ ±¸Çö °¡´ÉÇÑ °¡»ó ¸Ş¼­µå
+        #region ì„œë¸Œí´ë˜ìŠ¤ì—ì„œ êµ¬í˜„ ê°€ëŠ¥í•œ ê°€ìƒ ë©”ì„œë“œ
 
         /// <summary>
-        /// View ÀÌº¥Æ® ¿¬°á ÇØÁ¦ - ¼­ºêÅ¬·¡½º¿¡¼­ override °¡´É
+        /// View ì´ë²¤íŠ¸ ì—°ê²° í•´ì œ - ì„œë¸Œí´ë˜ìŠ¤ì—ì„œ override ê°€ëŠ¥
         /// </summary>
         protected virtual void DisconnectViewEvents()
         {
-            // ¼­ºêÅ¬·¡½º¿¡¼­ overrideÇÏ¿© ±¸Çö
+            // ì„œë¸Œí´ë˜ìŠ¤ì—ì„œ overrideí•˜ì—¬ êµ¬í˜„
         }
 
         /// <summary>
-        /// ViewModel ¿¬°á ÇØÁ¦ - ¼­ºêÅ¬·¡½º¿¡¼­ override °¡´É
+        /// ViewModel ì—°ê²° í•´ì œ - ì„œë¸Œí´ë˜ìŠ¤ì—ì„œ override ê°€ëŠ¥
         /// </summary>
         protected virtual void DisconnectFromViewModel()
         {
-            // ¼­ºêÅ¬·¡½º¿¡¼­ overrideÇÏ¿© ±¸Çö
+            // ì„œë¸Œí´ë˜ìŠ¤ì—ì„œ overrideí•˜ì—¬ êµ¬í˜„
         }
 
         #endregion
 
-        #region Inspector °ËÁõ ÇïÆÛ ¸Ş¼­µå
+        #region Inspector ê²€ì¦ í—¬í¼ ë©”ì„œë“œ
 
         /// <summary>
-        /// ´ÜÀÏ ÄÄÆ÷³ÍÆ® °ËÁõ
+        /// ë‹¨ì¼ ì»´í¬ë„ŒíŠ¸ ê²€ì¦
         /// </summary>
         protected bool ValidateComponent<T>(T component, string componentName) where T : Component
         {
             if (component == null)
             {
-                LogError($"{componentName}ÀÌ Inspector¿¡¼­ ¿¬°áµÇÁö ¾Ê¾Ò½À´Ï´Ù!");
+                LogError($"{componentName}ì´ Inspectorì—ì„œ ì—°ê²°ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤!");
                 return false;
             }
             return true;
         }
 
         /// <summary>
-        /// ¿©·¯ ÄÄÆ÷³ÍÆ® ÀÏ°ı °ËÁõ
+        /// ì—¬ëŸ¬ ì»´í¬ë„ŒíŠ¸ ì¼ê´„ ê²€ì¦
         /// </summary>
         protected bool ValidateComponents(params (Component component, string name)[] components)
         {
@@ -188,13 +271,13 @@ namespace Core
         }
 
         /// <summary>
-        /// Object °ËÁõ (GameObject, ScriptableObject µî)
+        /// Object ê²€ì¦ (GameObject, ScriptableObject ë“±)
         /// </summary>
         protected bool ValidateObject<T>(T obj, string objectName) where T : UnityEngine.Object
         {
             if (obj == null)
             {
-                LogError($"{objectName}ÀÌ Inspector¿¡¼­ ¿¬°áµÇÁö ¾Ê¾Ò½À´Ï´Ù!");
+                LogError($"{objectName}ì´ Inspectorì—ì„œ ì—°ê²°ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤!");
                 return false;
             }
             return true;
@@ -202,7 +285,7 @@ namespace Core
 
         #endregion
 
-        #region ·Î±ë ÇïÆÛ ¸Ş¼­µå
+        #region ë¡œê¹… í—¬í¼ ë©”ì„œë“œ
 
         protected void LogInfo(string message)
         {
@@ -221,16 +304,16 @@ namespace Core
 
         #endregion
 
-        #region Unity Editor Àü¿ë
+        #region Unity Editor ì „ìš©
 
 #if UNITY_EDITOR
         /// <summary>
-        /// Inspector¿¡¼­ °ªÀÌ º¯°æµÉ ¶§ È£Ãâ (¿¡µğÅÍ Àü¿ë)
+        /// Inspectorì—ì„œ ê°’ì´ ë³€ê²½ë  ë•Œ í˜¸ì¶œ (ì—ë””í„° ì „ìš©)
         /// </summary>
         protected virtual void OnValidate()
         {
-            // ¼­ºêÅ¬·¡½º¿¡¼­ overrideÇÏ¿© ±¸Çö
-            // Inspector ¼³Á¤ °ËÁõ¿ë
+            // ì„œë¸Œí´ë˜ìŠ¤ì—ì„œ overrideí•˜ì—¬ êµ¬í˜„
+            // Inspector ì„¤ì • ê²€ì¦ìš©
         }
 #endif
 

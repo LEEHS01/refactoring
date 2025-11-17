@@ -40,7 +40,7 @@ namespace HNS.MonitorA.Views
 
         private void OnClick()
         {
-            Debug.Log("⚙️ 환경설정 버튼 클릭");
+            Debug.Log("⚙환경설정 버튼 클릭");
             // TODO: UiManager.Instance.Invoke(UiEventType.PopupSetting, 0);
         }
     }

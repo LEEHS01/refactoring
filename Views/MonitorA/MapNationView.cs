@@ -16,7 +16,7 @@ namespace Views.MonitorA
         [Header("UI References")]
         [SerializeField] private Image imgBackground;
         [SerializeField] private Transform markerListParent;
-        [SerializeField] private Canvas parentCanvas;  // ✅ 추가: Canvas 참조
+        [SerializeField] private Canvas parentCanvas;  // 추가: Canvas 참조
 
         [Header("Drag/Zoom Settings")]
         [SerializeField] private float scrollSpeed = 0.1f;
@@ -26,7 +26,7 @@ namespace Views.MonitorA
         [SerializeField] private float maxScale = 2f;
 
         [Header("Minimap Settings (Relative)")]
-        [SerializeField] private Vector2 minimapOffsetFromCenter = new Vector2(700, 200);  // ✅ 중앙 기준 오프셋
+        [SerializeField] private Vector2 minimapOffsetFromCenter = new Vector2(700, 200);  // 중앙 기준 오프셋
         [SerializeField] private float minimapScale = 0.6f;  // 60%
         [SerializeField] private float minimapBackgroundAlpha = 0f;  // 투명
         [SerializeField] private float fullscreenBackgroundAlpha = 0.4f;  // 40%
@@ -44,7 +44,7 @@ namespace Views.MonitorA
         {
             _rectTransform = GetComponent<RectTransform>();
 
-            // ✅ Canvas 자동 찾기
+            // Canvas 자동 찾기
             if (parentCanvas == null)
             {
                 parentCanvas = GetComponentInParent<Canvas>();
@@ -176,25 +176,25 @@ namespace Views.MonitorA
         {
             _isDraggable = false;
 
-            // ✅ FHD 기준 해상도
+            // FHD 기준 해상도
             Vector2 referenceFHD = new Vector2(1920f, 1080f);
 
-            // ✅ 실제 화면 해상도
+            // 실제 화면 해상도
             Vector2 actualScreenSize = new Vector2(Screen.width, Screen.height);
 
-            // ✅ 해상도 비율 계산
+            // 해상도 비율 계산
             Vector2 resolutionScale = new Vector2(
                 actualScreenSize.x / referenceFHD.x,
                 actualScreenSize.y / referenceFHD.y
             );
 
-            // ✅ FHD 기준 오프셋에 비율 적용
+            // FHD 기준 오프셋에 비율 적용
             Vector2 scaledOffset = new Vector2(
                 minimapOffsetFromCenter.x * resolutionScale.x,
                 minimapOffsetFromCenter.y * resolutionScale.y
             );
 
-            // ✅ Screen 해상도 기준 중앙 좌표 (Canvas가 아님!)
+            // Screen 해상도 기준 중앙 좌표 (Canvas가 아님!)
             Vector3 centerPosition = new Vector3(actualScreenSize.x / 2f, actualScreenSize.y / 2f, 0);
 
             // 최종 목표 위치
@@ -222,7 +222,7 @@ namespace Views.MonitorA
         {
             _isDraggable = true;
 
-            // ✅ Screen 해상도 기준 중앙
+            // Screen 해상도 기준 중앙
             Vector2 actualScreenSize = new Vector2(Screen.width, Screen.height);
             Vector3 centerPosition = new Vector3(actualScreenSize.x / 2f, actualScreenSize.y / 2f, 0);
 

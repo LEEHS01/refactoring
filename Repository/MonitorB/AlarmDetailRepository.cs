@@ -39,11 +39,11 @@ namespace Repositories.MonitorB
                 };
 
                 var sensors = await GetSensorSettingsAsync(obsId);
-                Debug.Log($"🔥 센서 설정 조회 완료: {sensors.Count}개");
+                Debug.Log($"센서 설정 조회 완료: {sensors.Count}개");
 
                 // ⭐ 수정: 알람 시각만 전달 (내부에서 10분 단위로 내림)
                 var chartData = await GetChartDataAsync(obsId, alarmTime);
-                Debug.Log($"🔥 10분 단위 데이터 조회 완료: {chartData.Count}개");
+                Debug.Log($"10분 단위 데이터 조회 완료: {chartData.Count}개");
 
                 foreach (var sensor in sensors)
                 {
@@ -64,7 +64,7 @@ namespace Repositories.MonitorB
                     }
                 }
 
-                Debug.Log($"🔥 최종 결과: 생태독성={detailData.ToxinSensors.Count}, 수질={detailData.QualitySensors.Count}, 법정HNS={detailData.ChemicalSensors.Count}");
+                Debug.Log($"최종 결과: 생태독성={detailData.ToxinSensors.Count}, 수질={detailData.QualitySensors.Count}, 법정HNS={detailData.ChemicalSensors.Count}");
 
                 return detailData;
             }
@@ -175,7 +175,7 @@ namespace Repositories.MonitorB
                 .OrderBy(d => d.ObsDt)
                 .ToList();
 
-            Debug.Log($"📊 {setting.SensorName}: 차트 데이터 {sensorChartData.Count}개");
+            Debug.Log($"{setting.SensorName}: 차트 데이터 {sensorChartData.Count}개");
 
             var chartValues = sensorChartData.Select(d => d.Val).ToList();
             var chartTimes = sensorChartData.Select(d => d.ObsDt).ToList();
@@ -187,16 +187,16 @@ namespace Repositories.MonitorB
                 alarmCurrVal.HasValue)
             {
                 currentValue = alarmCurrVal.Value;
-                Debug.Log($"🎯 알람 센서 {setting.SensorName}: CURRVAL={currentValue}");
+                Debug.Log($" 알람 센서 {setting.SensorName}: CURRVAL={currentValue}");
             }
             else if (chartValues.Count > 0)
             {
                 currentValue = chartValues.Last();
-                Debug.Log($"📊 {setting.SensorName}: 차트값={currentValue}");
+                Debug.Log($"{setting.SensorName}: 차트값={currentValue}");
             }
             else
             {
-                Debug.LogWarning($"⚠️ {setting.SensorName}: 데이터 없음");
+                Debug.LogWarning($"{setting.SensorName}: 데이터 없음");
             }
 
             var status = DetermineSensorStatus(currentValue,

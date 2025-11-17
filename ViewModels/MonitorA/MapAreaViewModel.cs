@@ -42,7 +42,7 @@ namespace HNS.MonitorA.ViewModels
         public AreaInfoEvent OnAreaInfoLoaded = new AreaInfoEvent();
         public ObsMarkerListEvent OnObservatoriesLoaded = new ObsMarkerListEvent();
         public ErrorEvent OnError = new ErrorEvent();
-        public UnityEvent OnAreaCleared = new UnityEvent();  // ✅ 이 줄 추가!
+        public UnityEvent OnAreaCleared = new UnityEvent(); 
         #endregion
 
         #region Unity Lifecycle
@@ -106,7 +106,7 @@ namespace HNS.MonitorA.ViewModels
         /// <summary>
         /// 지역 데이터 초기화 (HOME으로 돌아갈 때)
         /// </summary>
-        public void ClearAreaData()  // ✅ 이 메서드 전체 추가!
+        public void ClearAreaData() 
         {
             Debug.Log($"[MapAreaViewModel] 지역 데이터 초기화: 이전 AreaId={_currentAreaId}");
 

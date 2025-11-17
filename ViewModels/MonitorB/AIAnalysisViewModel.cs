@@ -1,5 +1,4 @@
-﻿// ViewModels/MonitorB/AIAnalysisViewModel.cs
-using UnityEngine;
+﻿using UnityEngine;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -71,7 +70,7 @@ namespace ViewModels.MonitorB
                 Debug.Log($"[AIAnalysisViewModel] 정규화 완료 - AI: {aiProcessed.ProcessedValues.Count}개");
                 Debug.Log($"[AIAnalysisViewModel] 정규화된 AI값 샘플: {string.Join(", ", aiProcessed.ProcessedValues.Take(5).Select(v => v.ToString("F3")))}");
 
-                // ⭐ Repository에서 받은 실제 시간 사용
+                // Repository에서 받은 실제 시간 사용
                 OnDataLoaded?.Invoke(
                     aiProcessed,
                     measuredProcessed,

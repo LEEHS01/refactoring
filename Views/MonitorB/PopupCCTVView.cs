@@ -237,16 +237,16 @@ namespace Views.MonitorB
 
             int timeout = 1000;  // 1초
 
-            // ⭐ 원본과 동일한 URL 형식!
+            // 원본과 동일한 URL 형식!
             string requestUrl = $"http://{cctvIP}/httpapi/SendPTZ?action=sendptz&PTZ_CHANNEL=1&PTZ_MOVE={direction},{speed}&PTZ_TIMEOUT={timeout}";
 
             Debug.Log($"[PopupCCTVView] PTZ 제어 요청: {direction} - IP: {cctvIP}");
             Debug.Log($"[PopupCCTVView] 요청 URL: {requestUrl}");
 
-            // ⭐ 실제 HTTP 요청!
+            // 실제 HTTP 요청!
             HttpClient client = new HttpClient();
 
-            // ⭐ Basic 인증 추가!
+            // Basic 인증 추가!
             var byteArray = Encoding.ASCII.GetBytes("admin:HNS_qhdks_!Q@W3");
             client.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Basic",

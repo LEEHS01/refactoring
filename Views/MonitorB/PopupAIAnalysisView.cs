@@ -20,7 +20,7 @@ namespace Views.MonitorB
         [SerializeField] private ChartBarView chartMeasured;
         [SerializeField] private ChartBarView chartDifference;
 
-        // ⭐ 현재 센서 정보 저장
+        // 현재 센서 정보 저장
         private int currentObsId;
         private int currentBoardId;
         private int currentHnsId;
@@ -51,7 +51,7 @@ namespace Views.MonitorB
             }
         }
 
-        // ⭐ 차트 초기화
+        // 차트 초기화
         private void InitializeCharts()
         {
             if (chartAI != null)
@@ -101,7 +101,7 @@ namespace Views.MonitorB
 
             gameObject.SetActive(true);
 
-            // ⭐ 추가: 이전 차트 데이터 모두 클리어
+            // 이전 차트 데이터 모두 클리어
             ClearAllCharts();
 
             // 센서명 가져오기 (임시 → 실제)
@@ -117,7 +117,7 @@ namespace Views.MonitorB
             AIAnalysisViewModel.Instance.LoadAIAnalysis(obsId, boardId, hnsId);
         }
 
-        // ⭐ 센서명 가져오기
+        // 센서명 가져오기
         private void LoadSensorName()
         {
             if (txtSensorName == null) return;

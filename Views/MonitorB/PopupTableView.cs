@@ -167,7 +167,7 @@ namespace Views.MonitorB
 
             Debug.Log($"[PopupTableView] row0 찾음: {headerRow.name}");
 
-            // 🔥 구조: row0 → cells
+            // 구조: row0 → cells
             Transform cells = headerRow.Find("cells");
             if (cells == null)
             {

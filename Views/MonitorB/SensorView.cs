@@ -89,7 +89,7 @@ namespace Views.MonitorB
 
         protected override void DisconnectViewEvents()
         {
-            // ⭐ 아이템 클릭 이벤트 해제
+            // 아이템 클릭 이벤트 해제
             foreach (var item in toxinItems)
             {
                 if (item != null)
@@ -296,7 +296,7 @@ namespace Views.MonitorB
                 {
                     // 활성화 + 데이터 설정
                     itemPool[i].gameObject.SetActive(true);
-                    itemPool[i].SetData(sensors[i], currentObsId); // ✅ obsId 전달
+                    itemPool[i].SetData(sensors[i], currentObsId); 
                 }
                 else
                 {

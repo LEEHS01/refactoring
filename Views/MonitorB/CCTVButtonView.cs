@@ -60,10 +60,10 @@ namespace Views.MonitorB
 
             LogInfo($"[btnCCTV] 버튼 클릭 - 관측소 ID: {currentObsId}");
 
-            // ⭐ Panel_Video 활성화
+            // Panel_Video 활성화
             panelVideo.SetActive(true);
 
-            // ⭐ Panel_Video에 관측소 ID 전달
+            // Panel_Video에 관측소 ID 전달
             var cctvPanelView = panelVideo.GetComponent<CCTVPanelView>();
             if (cctvPanelView != null)
             {

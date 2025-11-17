@@ -70,6 +70,7 @@ public class AppInitializer : MonoBehaviour
         CreateViewModel<MapNationViewModel>("MapNationViewModel");
         CreateViewModel<MapAreaViewModel>("MapAreaViewModel");
         CreateViewModel<AreaAlarmChartViewModel>("AreaAlarmChartViewModel");
+        CreateViewModel<Area3DViewModel>("Area3DViewModel");
 
         // 모든 ViewModel이 준비될 때까지 대기
         while (AlarmLogViewModel.Instance == null ||
@@ -85,7 +86,8 @@ public class AppInitializer : MonoBehaviour
                AreaListTypeViewModel.Instance == null ||
                MapNationViewModel.Instance == null ||
                MapAreaViewModel.Instance == null ||
-               AreaAlarmChartViewModel.Instance == null)
+               AreaAlarmChartViewModel.Instance == null ||
+               Area3DViewModel.Instance == null)
         {
             yield return null;
         }

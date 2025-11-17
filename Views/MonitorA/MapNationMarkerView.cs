@@ -19,7 +19,7 @@ namespace Views.MonitorA
         [SerializeField] private TMP_Text txtAreaName;
         [SerializeField] private Animator animator;
         [SerializeField] private GameObject focusImage;
-        [SerializeField] private Button btnNavigate;  // ✅ 추가!
+        [SerializeField] private Button btnNavigate; 
 
         [Header("Icon Sprites")]
         [SerializeField] private Sprite iconNuclear;
@@ -36,7 +36,7 @@ namespace Views.MonitorA
             { ToxinStatus.Purple, new Color(0.424f, 0f, 0.886f) }
         };
 
-        // ✅ 클릭 이벤트 추가!
+        // 클릭 이벤트 추가!
         public event Action<int> OnAreaClicked;
 
         private void Start()
@@ -47,7 +47,7 @@ namespace Views.MonitorA
                 focusImage.SetActive(false);
             }
 
-            // ✅ 버튼 클릭 이벤트 연결
+            // 버튼 클릭 이벤트 연결
             if (btnNavigate != null)
             {
                 btnNavigate.onClick.AddListener(OnClick);
@@ -56,7 +56,7 @@ namespace Views.MonitorA
 
         private void OnDestroy()
         {
-            // ✅ 이벤트 해제
+            // 이벤트 해제
             if (btnNavigate != null)
             {
                 btnNavigate.onClick.RemoveListener(OnClick);
@@ -108,7 +108,7 @@ namespace Views.MonitorA
             }
         }
 
-        // ✅ 버튼 클릭 핸들러
+        // 버튼 클릭 핸들러
         private void OnClick()
         {
             if (_data != null)

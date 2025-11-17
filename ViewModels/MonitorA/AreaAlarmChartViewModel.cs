@@ -101,6 +101,9 @@ namespace HNS.MonitorA.ViewModels
                 // 지역 진입 시
                 MapAreaViewModel.Instance.OnAreaInfoLoaded.AddListener(OnAreaInfoLoaded);
 
+                // HOME 복귀 시
+                MapAreaViewModel.Instance.OnAreaCleared.AddListener(OnAreaCleared);
+
                 Debug.Log("[AreaAlarmChartViewModel] MapAreaViewModel 이벤트 구독 완료");
             }
             else
@@ -114,6 +117,9 @@ namespace HNS.MonitorA.ViewModels
             if (MapAreaViewModel.Instance != null)
             {
                 MapAreaViewModel.Instance.OnAreaInfoLoaded.RemoveListener(OnAreaInfoLoaded);
+
+                // HOME 복귀 이벤트 해제
+                MapAreaViewModel.Instance.OnAreaCleared.RemoveListener(OnAreaCleared);
             }
         }
 
@@ -137,6 +143,19 @@ namespace HNS.MonitorA.ViewModels
 
             // 2. 차트 데이터 로드
             StartCoroutine(LoadChartDataCoroutine(areaId));
+        }
+
+        /// <summary>
+        /// HOME 복귀 (MapAreaViewModel.OnAreaCleared)
+        /// </summary>
+        private void OnAreaCleared()
+        {
+            Debug.Log("[AreaAlarmChartViewModel] HOME 복귀: 차트 숨김");
+
+            _currentAreaId = -1;
+            _currentChartData = null;  // ✅ 데이터도 초기화
+
+            OnAreaExited?.Invoke();
         }
 
         #endregion

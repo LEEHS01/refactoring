@@ -153,19 +153,19 @@ public class AlarmLogView : BaseView
 
     private void OnAreaFilterChanged(int index)
     {
-        Debug.Log($"🔵 [AlarmLogView] OnAreaFilterChanged 호출! index={index}");  // ⭐
+        Debug.Log($"[AlarmLogView] OnAreaFilterChanged 호출! index={index}");  // ⭐
 
         if (AlarmLogViewModel.Instance == null) return;
 
         if (index == 0)
         {
-            Debug.Log("🔵 [AlarmLogView] 전체 선택 - null 전달");  // ⭐
+            Debug.Log("[AlarmLogView] 전체 선택 - null 전달");  // ⭐
             AlarmLogViewModel.Instance.FilterByArea(null);
         }
         else
         {
             string selectedArea = dropdownMap.options[index].text;
-            Debug.Log($"🔵 [AlarmLogView] 지역 선택 - {selectedArea} 전달");  // ⭐
+            Debug.Log($"[AlarmLogView] 지역 선택 - {selectedArea} 전달");  // ⭐
             AlarmLogViewModel.Instance.FilterByArea(selectedArea);
         }
 
@@ -175,19 +175,19 @@ public class AlarmLogView : BaseView
 
     private void OnStatusFilterChanged(int index)
     {
-        Debug.Log($"🟢 [AlarmLogView] OnStatusFilterChanged 호출! index={index}");  // ⭐
+        Debug.Log($"[AlarmLogView] OnStatusFilterChanged 호출! index={index}");  // ⭐
 
         if (AlarmLogViewModel.Instance == null) return;
 
         if (index == 0)
         {
-            Debug.Log("🟢 [AlarmLogView] 전체 선택 - null 전달");  // ⭐
+            Debug.Log("[AlarmLogView] 전체 선택 - null 전달");  // ⭐
             AlarmLogViewModel.Instance.FilterByStatus(null);
         }
         else
         {
             int status = index - 1;
-            Debug.Log($"🟢 [AlarmLogView] 상태 선택 - status={status} 전달");  // ⭐
+            Debug.Log($"[AlarmLogView] 상태 선택 - status={status} 전달");  // ⭐
             AlarmLogViewModel.Instance.FilterByStatus(status);
         }
 
@@ -203,10 +203,10 @@ public class AlarmLogView : BaseView
         // 지역 드롭다운 옵션 채우기
         if (dropdownMap != null)
         {
-            // ⭐ 현재 선택된 값 저장
+            // 현재 선택된 값 저장
             int currentValue = dropdownMap.value;
 
-            // ⭐ 리스너 임시 제거
+            // 리스너 임시 제거
             dropdownMap.onValueChanged.RemoveListener(OnAreaFilterChanged);
 
             dropdownMap.ClearOptions();
@@ -220,23 +220,23 @@ public class AlarmLogView : BaseView
             areaNames.Insert(0, "전체");
             dropdownMap.AddOptions(areaNames);
 
-            // ⭐ 값 복원 (범위 체크)
+            // 값 복원 (범위 체크)
             dropdownMap.value = Mathf.Clamp(currentValue, 0, areaNames.Count - 1);
 
-            // ⭐ 리스너 다시 추가
+            // 리스너 다시 추가
             dropdownMap.onValueChanged.AddListener(OnAreaFilterChanged);
 
-            // ⭐ 수동으로 Refresh
+            // 수동으로 Refresh
             dropdownMap.RefreshShownValue();
         }
 
         // 상태 드롭다운 옵션 채우기
         if (dropdownStatus != null)
         {
-            // ⭐ 현재 선택된 값 저장
+            // 현재 선택된 값 저장
             int currentValue = dropdownStatus.value;
 
-            // ⭐ 리스너 임시 제거
+            // 리스너 임시 제거
             dropdownStatus.onValueChanged.RemoveListener(OnStatusFilterChanged);
 
             dropdownStatus.ClearOptions();
@@ -244,13 +244,13 @@ public class AlarmLogView : BaseView
             var statusOptions = new List<string> { "전체", "설비이상", "경계", "경보" };
             dropdownStatus.AddOptions(statusOptions);
 
-            // ⭐ 값 복원 (범위 체크)
+            // 값 복원 (범위 체크)
             dropdownStatus.value = Mathf.Clamp(currentValue, 0, statusOptions.Count - 1);
 
-            // ⭐ 리스너 다시 추가
+            // 리스너 다시 추가
             dropdownStatus.onValueChanged.AddListener(OnStatusFilterChanged);
 
-            // ⭐ 수동으로 Refresh
+            // 수동으로 Refresh
             dropdownStatus.RefreshShownValue();
         }
     }
@@ -603,7 +603,7 @@ public class AlarmLogView : BaseView
 
         LogInfo($"알람 로그 클릭: {alarmData.areaName} - {alarmData.obsName}");
 
-        // ⭐ 팝업 열기
+        // 팝업 열기
         if (popupAlarmDetail != null)
         {
             popupAlarmDetail.OpenPopup(
@@ -637,7 +637,7 @@ public class AlarmLogView : BaseView
 
         LogInfo($"센서 데이터 로드 요청: {alarmData.areaName} - {alarmData.obsName}");
 
-        // ⭐ 차트 뷰에 독성도 자동 로드
+        // 차트 뷰에 독성도 자동 로드
         LoadDefaultToxicityChart(alarmData.obsId);
     }
 
@@ -652,7 +652,7 @@ public class AlarmLogView : BaseView
             return;
         }
 
-        // ⭐ 독성도: Board 1, HNS 1
+        // 독성도: Board 1, HNS 1
         const int DEFAULT_BOARD_ID = 1;
         const int DEFAULT_HNS_ID = 1;
         const string DEFAULT_SENSOR_NAME = "독성도";

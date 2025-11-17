@@ -69,7 +69,7 @@ namespace HNS.Services
                 return;
             }
 
-            isRealtimeRunning = true;  // ⭐ CRITICAL: StartCoroutine 전에 먼저 설정!
+            isRealtimeRunning = true;  // CRITICAL: StartCoroutine 전에 먼저 설정!
             Debug.Log($"[SchedulerService] 실시간 체크 시작 - {realtimeInterval}초 주기");
             _realtimeCoroutine = StartCoroutine(RealtimeCheckLoop());
         }
@@ -85,7 +85,7 @@ namespace HNS.Services
                 return;
             }
 
-            isDataSyncRunning = true;  // ⭐ CRITICAL: StartCoroutine 전에 먼저 설정!
+            isDataSyncRunning = true;  // CRITICAL: StartCoroutine 전에 먼저 설정!
             Debug.Log($"[SchedulerService] 데이터 동기화 시작 - {dataSyncInterval}분 주기");
             _dataSyncCoroutine = StartCoroutine(DataSyncLoop());
         }

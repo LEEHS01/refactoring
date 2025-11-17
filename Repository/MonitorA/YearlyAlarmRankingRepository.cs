@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Services;
 
-namespace HNS.MonitorA.Repositories  // ⭐ 이 네임스페이스가 제대로 있는지 확인
+namespace HNS.MonitorA.Repositories 
 {
     public class YearlyAlarmRankingRepository
     {

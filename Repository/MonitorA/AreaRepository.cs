@@ -4,8 +4,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Services;
-using Models.MonitorB;  // ⭐ 이거만 있으면 됨!
-using HNS.MonitorA.Models;  // ⭐ AreaObservatoryStatusData만 여기서
+using Models.MonitorB;
+using HNS.MonitorA.Models; 
 
 namespace HNS.MonitorA.Repositories
 {
@@ -57,14 +57,14 @@ namespace HNS.MonitorA.Repositories
             }
 
             // ===== 2단계: 현재 활성 알람 =====
-            List<Models.AlarmLogModel> activeAlarms = null;  // ⭐ 명시적으로 Models. 붙임!
+            List<Models.AlarmLogModel> activeAlarms = null;  
             bool alarmComplete = false;
             string alarmError = null;
 
             yield return Database.ExecuteProcedure(
                 "GET_CURRENT_ALARM_LOG",
                 null,
-                (List<Models.AlarmLogModel> alarms) =>  // ⭐ 여기도!
+                (List<Models.AlarmLogModel> alarms) =>  
                 {
                     activeAlarms = alarms;
                     alarmComplete = true;
@@ -88,7 +88,7 @@ namespace HNS.MonitorA.Repositories
 
             if (activeAlarms == null)
             {
-                activeAlarms = new List<Models.AlarmLogModel>();  // ⭐ 여기도!
+                activeAlarms = new List<Models.AlarmLogModel>(); 
             }
 
             // ===== 3단계: 지역별 집계 =====
@@ -127,7 +127,7 @@ namespace HNS.MonitorA.Repositories
         /// <summary>
         /// 알람 리스트에서 관측소 상태 판단
         /// </summary>
-        private int GetObsStatusFromAlarms(int obsId, List<Models.AlarmLogModel> alarms)  // ⭐ 여기도!
+        private int GetObsStatusFromAlarms(int obsId, List<Models.AlarmLogModel> alarms)  
         {
             var obsAlarms = alarms.Where(a => a.OBSIDX == obsId).ToList();
 

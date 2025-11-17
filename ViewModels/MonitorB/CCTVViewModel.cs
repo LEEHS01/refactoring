@@ -58,7 +58,7 @@ namespace ViewModels.MonitorB
             ));
         }
 
-        private void OnLoadSuccess(Models.MonitorB.ObservatoryModel obs)  // ⭐ Models. 명시
+        private void OnLoadSuccess(Models.MonitorB.ObservatoryModel obs)  // Models. 명시
         {
             CurrentVideo1Url = obs.OUT_CCTVURL; // 외부
             CurrentVideo2Url = obs.IN_CCTVURL;  // 내부

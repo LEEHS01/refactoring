@@ -17,10 +17,15 @@ namespace HNS.MonitorA.Views
     {
         #region Inspector 설정
         [Header("UI Components")]
-        [SerializeField] private TMP_Text txtAreaTitle;
-        [SerializeField] private Image imgAreaBackground;
-        [SerializeField] private Transform markerListParent;
-        [SerializeField] private CanvasGroup canvasGroup;  // ✅ 추가
+        [SerializeField] private TMP_Text txtAreaTitle;     // TitleObs
+        [SerializeField] private Image imgAreaBackground;   // MapImage
+        [SerializeField] private Transform markerListParent; // MarkerList
+
+        [Header("Navigation")]
+        [SerializeField] private Area3DView area3DView;      // 3D 관측소 화면
+
+        [Header("Canvas Control")]
+        [SerializeField] private CanvasGroup canvasGroup;    // 화면 표시 제어
         #endregion
 
         #region Private Fields
@@ -43,29 +48,37 @@ namespace HNS.MonitorA.Views
                 return;
             }
 
-            // ✅ CanvasGroup 자동 추가
+            // area3DView는 경고만 (선택적)
+            if (area3DView == null)
+            {
+                LogWarning("area3DView가 연결되지 않았습니다. 3D 화면 전환이 작동하지 않습니다!");
+            }
+
+            // CanvasGroup 자동 추가 또는 가져오기
             if (canvasGroup == null)
             {
                 canvasGroup = GetComponent<CanvasGroup>();
                 if (canvasGroup == null)
                 {
                     canvasGroup = gameObject.AddComponent<CanvasGroup>();
+                    LogInfo("CanvasGroup 자동 추가");
                 }
             }
 
-            // 마커 View들 수집
+            // 마커 View들 수집 (Object Pool)
             _markerViews = markerListParent
                 .GetComponentsInChildren<MapAreaMarkerView>(true)
                 .ToList();
 
             LogInfo($"마커 View {_markerViews.Count}개 수집 완료");
 
-            // ✅ 초기 숨김 (GameObject는 활성화 유지)
-            HideView();
+            // 초기 상태: 보이지 않게 (GameObject는 활성화 유지!)
+            HideMapArea();
         }
 
         protected override void SetupViewEvents()
         {
+            // 각 마커의 클릭 이벤트 구독
             foreach (var markerView in _markerViews)
             {
                 if (markerView != null)
@@ -85,10 +98,10 @@ namespace HNS.MonitorA.Views
                 return;
             }
 
+            // ViewModel 이벤트 구독
             MapAreaViewModel.Instance.OnAreaInfoLoaded.AddListener(OnAreaInfoLoaded);
             MapAreaViewModel.Instance.OnObservatoriesLoaded.AddListener(OnObservatoriesLoaded);
             MapAreaViewModel.Instance.OnError.AddListener(OnError);
-            MapAreaViewModel.Instance.OnAreaCleared.AddListener(OnAreaCleared);
 
             LogInfo("ViewModel 이벤트 구독 완료");
         }
@@ -100,7 +113,6 @@ namespace HNS.MonitorA.Views
                 MapAreaViewModel.Instance.OnAreaInfoLoaded.RemoveListener(OnAreaInfoLoaded);
                 MapAreaViewModel.Instance.OnObservatoriesLoaded.RemoveListener(OnObservatoriesLoaded);
                 MapAreaViewModel.Instance.OnError.RemoveListener(OnError);
-                MapAreaViewModel.Instance.OnAreaCleared.RemoveListener(OnAreaCleared);
             }
         }
 
@@ -124,7 +136,7 @@ namespace HNS.MonitorA.Views
         {
             LogInfo($"지역 정보 수신: {data.AreaName}");
 
-            // ✅ 모든 AreaListTypeView 비활성화
+            // ✅ 모든 AreaListTypeView 비활성화 (Unity 2023+)
             var areaListViews = FindObjectsByType<AreaListTypeView>(FindObjectsSortMode.None);
             foreach (var view in areaListViews)
             {
@@ -157,9 +169,8 @@ namespace HNS.MonitorA.Views
                 }
             }
 
-            // ✅ View 표시 (GameObject는 계속 active)
-            ShowView();
-            LogInfo("MapAreaView 표시");
+            // MapArea 표시
+            ShowMapArea();
         }
 
         /// <summary>
@@ -169,16 +180,18 @@ namespace HNS.MonitorA.Views
         {
             LogInfo($"관측소 마커 렌더링: {observatories.Count}개");
 
-            // Object Pooling
+            // Object Pooling: 활성화/비활성화 + 데이터 바인딩
             for (int i = 0; i < _markerViews.Count; i++)
             {
                 if (i < observatories.Count)
                 {
+                    // 데이터 있음 → 활성화 + 바인딩
                     _markerViews[i].gameObject.SetActive(true);
                     _markerViews[i].Bind(observatories[i]);
                 }
                 else
                 {
+                    // 데이터 없음 → 비활성화
                     _markerViews[i].gameObject.SetActive(false);
                 }
             }
@@ -191,53 +204,68 @@ namespace HNS.MonitorA.Views
         {
             LogError($"ViewModel 에러: {errorMessage}");
         }
+        #endregion
 
+        #region View 이벤트 핸들러
         /// <summary>
-        /// HOME 복귀 시 지역 지도 숨김
+        /// 관측소 마커 클릭 - 3D 화면으로 전환
         /// </summary>
-        private void OnAreaCleared()
+        private void OnObsMarkerClicked(int obsId)
         {
-            LogInfo("HOME 복귀: 지역 지도 숨김");
-            HideView();
+            LogInfo($"관측소 클릭: ObsId={obsId}");
+
+            // 3D 화면 연결 확인
+            if (area3DView == null)
+            {
+                LogError("area3DView가 연결되지 않았습니다! Inspector에서 Area_3D를 연결해주세요.");
+                return;
+            }
+
+            // 🎯 1단계: 지도 화면 숨김 (CanvasGroup 사용)
+            HideMapArea();
+            LogInfo("MapArea 화면 숨김 완료");
+
+            // 🎯 2단계: 3D 관측소 화면 표시
+            area3DView.ShowObservatory(obsId);
+            LogInfo($"3D 관측소 화면 전환 요청: ObsId={obsId}");
         }
         #endregion
 
-        #region View 표시/숨김
+        #region Helper Methods
         /// <summary>
-        /// View 표시 (CanvasGroup 사용)
+        /// MapArea 표시 (CanvasGroup 사용)
         /// </summary>
-        private void ShowView()
+        private void ShowMapArea()
         {
             if (canvasGroup != null)
             {
                 canvasGroup.alpha = 1f;
                 canvasGroup.interactable = true;
                 canvasGroup.blocksRaycasts = true;
+                LogInfo("MapArea 표시");
             }
         }
 
         /// <summary>
-        /// View 숨김 (CanvasGroup 사용)
+        /// MapArea 숨김 (CanvasGroup 사용)
         /// </summary>
-        private void HideView()
+        private void HideMapArea()
         {
             if (canvasGroup != null)
             {
                 canvasGroup.alpha = 0f;
                 canvasGroup.interactable = false;
                 canvasGroup.blocksRaycasts = false;
+                LogInfo("MapArea 숨김");
             }
         }
-        #endregion
 
-        #region View 이벤트 핸들러
         /// <summary>
-        /// 관측소 마커 클릭
+        /// 외부에서 MapArea 복귀 시 호출
         /// </summary>
-        private void OnObsMarkerClicked(int obsId)
+        public void RestoreMapArea()
         {
-            LogInfo($"관측소 클릭: ObsId={obsId}");
-            // TODO: Observatory3DViewModel.Instance.LoadObsData(obsId);
+            ShowMapArea();
         }
         #endregion
 
@@ -245,6 +273,11 @@ namespace HNS.MonitorA.Views
         private void LogInfo(string message)
         {
             Debug.Log($"[MapAreaView] {message}");
+        }
+
+        private void LogWarning(string message)
+        {
+            Debug.LogWarning($"[MapAreaView] {message}");
         }
 
         private void LogError(string message)
