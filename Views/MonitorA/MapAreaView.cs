@@ -264,6 +264,7 @@ namespace HNS.MonitorA.Views
             LogInfo("========================================");
             LogInfo("HOME 복귀 - 모든 Title 숨김");
 
+            HideMapArea();
             HideTitleAreaName();    // ⭐ 지역명 숨김
             HideTitleObsName();     // ⭐ 관측소명 숨김
 
@@ -291,6 +292,7 @@ namespace HNS.MonitorA.Views
             LogInfo("========================================");
             LogInfo("3D 관측소 닫기 - 지역 지도로 복귀");
 
+            ShowMapArea();
             ShowTitleAreaName();    // ⭐ 지역명 유지
             HideTitleObsName();     // ⭐ 관측소명 숨김
 

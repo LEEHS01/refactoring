@@ -27,6 +27,18 @@ namespace HNS.MonitorA.Views
         private int _currentObsId = -1;
         #endregion
 
+        #region Unity Lifecycle Override
+
+        // ⭐ BaseView의 OnDisable을 오버라이드하여 이벤트 구독 유지
+        protected override void OnDisable()
+        {
+            LogInfo("OnDisable 호출 - 이벤트 구독 유지 (오버라이드)");
+            // base.OnDisable() 호출하지 않음!
+            // 이벤트 구독을 해제하지 않고 유지
+        }
+
+        #endregion
+
         #region BaseView 구현
         protected override void InitializeUIComponents()
         {

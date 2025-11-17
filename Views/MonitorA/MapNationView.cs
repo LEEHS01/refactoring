@@ -151,7 +151,15 @@ namespace Views.MonitorA
 
         private void OnAreaClicked(int areaId)
         {
+            LogInfo($"========================================");
             LogInfo($"지역 클릭: AreaId={areaId}");
+
+            // ⭐⭐⭐ 관측소 활성화 상태면 먼저 닫기!
+            if (Area3DViewModel.Instance != null && Area3DViewModel.Instance.IsObservatoryActive)
+            {
+                LogInfo("관측소 활성화 상태 → 먼저 CloseObservatory 호출");
+                Area3DViewModel.Instance.CloseObservatory();
+            }
 
             SwitchToMinimapMode();
 
@@ -163,6 +171,8 @@ namespace Views.MonitorA
             {
                 LogError("MapAreaViewModel.Instance가 null입니다!");
             }
+
+            LogInfo($"========================================");
         }
 
         #endregion
