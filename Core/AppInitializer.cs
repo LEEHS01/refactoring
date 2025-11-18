@@ -3,6 +3,7 @@ using Services;
 using System.Collections;
 using UnityEngine;
 using ViewModels.Common;
+using ViewModels.MonitorA;
 using ViewModels.MonitorB;
 
 public class AppInitializer : MonoBehaviour
@@ -71,6 +72,7 @@ public class AppInitializer : MonoBehaviour
         CreateViewModel<MapAreaViewModel>("MapAreaViewModel");
         CreateViewModel<AreaAlarmChartViewModel>("AreaAlarmChartViewModel");
         CreateViewModel<Area3DViewModel>("Area3DViewModel");
+        CreateViewModel<ObsMonitoringViewModel>("ObsMonitoringViewModel");
 
         // 모든 ViewModel이 준비될 때까지 대기
         while (AlarmLogViewModel.Instance == null ||
@@ -87,7 +89,8 @@ public class AppInitializer : MonoBehaviour
                MapNationViewModel.Instance == null ||
                MapAreaViewModel.Instance == null ||
                AreaAlarmChartViewModel.Instance == null ||
-               Area3DViewModel.Instance == null)
+               Area3DViewModel.Instance == null ||
+               ObsMonitoringViewModel.Instance == null)
         {
             yield return null;
         }

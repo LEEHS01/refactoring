@@ -1,6 +1,7 @@
 ﻿using Core;
 using HNS.MonitorA.ViewModels;
 using UnityEngine;
+using Views.MonitorA;  // ⭐ ObsMonitoringView 사용
 
 namespace HNS.MonitorA.Views
 {
@@ -21,6 +22,9 @@ namespace HNS.MonitorA.Views
 
         [Header("Navigation")]
         [SerializeField] private MapAreaView mapAreaView;
+
+        [Header("Monitoring Panel")]
+        [SerializeField] private ObsMonitoringView obsMonitoringView;  // ⭐ ObsMonitoring 패널
         #endregion
 
         #region Private Fields
@@ -73,6 +77,20 @@ namespace HNS.MonitorA.Views
                 }
             }
 
+            // ⭐ ObsMonitoringView 자동 찾기
+            if (obsMonitoringView == null)
+            {
+                obsMonitoringView = FindObjectOfType<ObsMonitoringView>(true);
+                if (obsMonitoringView != null)
+                {
+                    LogInfo("ObsMonitoringView 자동으로 찾음");
+                }
+                else
+                {
+                    LogWarning("ObsMonitoringView를 찾을 수 없습니다! Inspector에서 연결하세요.");
+                }
+            }
+
             LogInfo("컴포넌트 초기화 완료");
 
             Hide3DScene();
@@ -120,21 +138,43 @@ namespace HNS.MonitorA.Views
         {
             _currentObsId = obsId;
 
+            LogInfo($"========================================");
             LogInfo($"3D 관측소 표시: ObsId={obsId}");
 
             Show3DScene();
 
+            // ⭐ ObsMonitoring 패널 표시
+            if (obsMonitoringView != null)
+            {
+                obsMonitoringView.Show(obsId);
+                LogInfo($"ObsMonitoring 패널 표시: ObsId={obsId}");
+            }
+            else
+            {
+                LogWarning("ObsMonitoringView가 null입니다!");
+            }
+
             LogInfo("3D 화면 활성화 완료");
+            LogInfo("========================================");
         }
 
         private void OnObservatoryClosed()
         {
+            LogInfo("========================================");
             LogInfo("3D 관측소 닫기");
 
             Hide3DScene();
 
+            // ⭐ ObsMonitoring 패널 숨김
+            if (obsMonitoringView != null)
+            {
+                obsMonitoringView.Hide();
+                LogInfo("ObsMonitoring 패널 숨김");
+            }
+
             // ✅ MapArea 복원은 제거 (MapAreaViewModel이 알아서 처리)
             LogInfo("3D 관측소 정리 완료");
+            LogInfo("========================================");
         }
 
         private void OnError(string errorMessage)
