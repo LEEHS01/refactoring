@@ -5,35 +5,35 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Models.MonitorA;
-using ChartDataModel = Models.MonitorA.ChartDataModel;
 
 namespace Repositories.MonitorA
 {
     /// <summary>
     /// 관측소 모니터링 데이터 Repository
-    /// DatabaseService.ExecuteProcedure 사용 (리팩토링된 코드)
+    /// ✅ GET_SENSOR_INFO 통합 프로시저 사용 (Monitor B와 동일)
     /// </summary>
     public class ObsMonitoringRepository
     {
         private DatabaseService Database => DatabaseService.Instance;
 
         /// <summary>
-        /// 센서 정보 조회 (GET_SETTING)
+        /// 센서 정보 + 현재값 통합 조회 (GET_SENSOR_INFO)
+        /// ✅ Monitor B와 동일한 프로시저 사용 - 데이터 일관성 보장!
         /// </summary>
-        public IEnumerator GetToxinData(
+        public IEnumerator GetSensorInfo(
             int obsId,
-            Action<List<ToxinData>> onSuccess,
+            Action<List<SensorInfoModelA>> onSuccess,
             Action<string> onError)
         {
-            Debug.Log($"[ObsMonitoringRepository] GetToxinData: ObsId={obsId}");
+            Debug.Log($"[ObsMonitoringRepository] GetSensorInfo: ObsId={obsId}");
 
             var parameters = new Dictionary<string, object>
             {
-                { "obsidx", obsId }
+                { "OBSIDX", obsId }
             };
 
-            yield return Database.ExecuteProcedure<HnsResourceModel>(
-                "GET_SETTING",
+            yield return Database.ExecuteProcedure<SensorInfoModelA>(
+                "GET_SENSOR_INFO",
                 parameters,
                 models =>
                 {
@@ -43,47 +43,7 @@ namespace Repositories.MonitorA
                         return;
                     }
 
-                    // HnsResourceModel → ToxinData 변환
-                    var toxinDataList = new List<ToxinData>();
-                    foreach (var model in models)
-                    {
-                        toxinDataList.Add(new ToxinData(model, model.unit ?? ""));
-                    }
-
-                    Debug.Log($"[ObsMonitoringRepository] GetToxinData 성공: {toxinDataList.Count}개");
-                    onSuccess?.Invoke(toxinDataList);
-                },
-                onError
-            );
-        }
-
-        /// <summary>
-        /// 최신 측정값 조회 (GET_CURRENT_TOXI)
-        /// </summary>
-        public IEnumerator GetToxinValueLast(
-            int obsId,
-            Action<List<CurrentDataModel>> onSuccess,
-            Action<string> onError)
-        {
-            Debug.Log($"[ObsMonitoringRepository] GetToxinValueLast: ObsId={obsId}");
-
-            var parameters = new Dictionary<string, object>
-            {
-                { "obsidx", obsId }
-            };
-
-            yield return Database.ExecuteProcedure<CurrentDataModel>(
-                "GET_CURRENT_TOXI",
-                parameters,
-                models =>
-                {
-                    if (models == null || models.Count == 0)
-                    {
-                        onError?.Invoke("측정값 데이터가 없습니다.");
-                        return;
-                    }
-
-                    Debug.Log($"[ObsMonitoringRepository] GetToxinValueLast 성공: {models.Count}개");
+                    Debug.Log($"[ObsMonitoringRepository] GetSensorInfo 성공: {models.Count}개");
                     onSuccess?.Invoke(models);
                 },
                 onError
@@ -91,7 +51,7 @@ namespace Repositories.MonitorA
         }
 
         /// <summary>
-        /// 차트 데이터 조회 (GET_CHARTVALUE) ⭐ 추가!
+        /// 차트 데이터 조회 (GET_CHARTVALUE)
         /// </summary>
         public IEnumerator GetChartValue(
             int obsId,
@@ -101,7 +61,7 @@ namespace Repositories.MonitorA
             Action<List<ChartDataModel>> onSuccess,
             Action<string> onError)
         {
-            Debug.Log($"[ObsMonitoringRepository] GetChartValue: ObsId={obsId}, {startTime:yyyy-MM-dd HH:mm} ~ {endTime:yyyy-MM-dd HH:mm}");
+            Debug.Log($"[ObsMonitoringRepository] GetChartValue: ObsId={obsId}");
 
             var parameters = new Dictionary<string, object>
             {
@@ -152,12 +112,11 @@ namespace Repositories.MonitorA
                 {
                     if (results == null || results.Count == 0)
                     {
-                        Debug.LogWarning("[ObsMonitoringRepository] GetSensorStep 결과 없음 - 기본값 5 반환");
-                        onSuccess?.Invoke(5); // 기본값: 정상 운영 중
+                        Debug.LogWarning("[ObsMonitoringRepository] GetSensorStep 결과 없음");
+                        onSuccess?.Invoke(5);
                         return;
                     }
 
-                    // toxistep을 int로 변환
                     string stepStr = results[0].toxistep;
                     int step = ConvertStepToInt(stepStr);
 
@@ -166,16 +125,12 @@ namespace Repositories.MonitorA
                 },
                 error =>
                 {
-                    Debug.LogWarning($"[ObsMonitoringRepository] GetSensorStep 실패 - 기본값 5 반환: {error}");
-                    onSuccess?.Invoke(5); // 에러 시에도 기본값 반환
+                    Debug.LogWarning($"[ObsMonitoringRepository] GetSensorStep 실패");
+                    onSuccess?.Invoke(5);
                 }
             );
         }
 
-        /// <summary>
-        /// Step 문자열을 int로 변환
-        /// "25" → 5, "20" → 0, "21" → 1, ...
-        /// </summary>
         private int ConvertStepToInt(string stepStr)
         {
             if (string.IsNullOrEmpty(stepStr))
@@ -183,16 +138,14 @@ namespace Repositories.MonitorA
 
             if (int.TryParse(stepStr, out int stepValue))
             {
-                // "25" → 5, "20" → 0, "21" → 1
                 if (stepValue >= 20 && stepValue <= 25)
                     return stepValue - 20;
 
-                // 이미 0~5 범위면 그대로 반환
                 if (stepValue >= 0 && stepValue <= 5)
                     return stepValue;
             }
 
-            return 5; // 기본값
+            return 5;
         }
     }
 }

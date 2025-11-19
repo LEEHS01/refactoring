@@ -7,13 +7,14 @@ using UnityEngine.Events;
 using Onthesys;
 using Models.MonitorA;
 using Repositories.MonitorA;
-using ChartDataModel = Models.MonitorA.ChartDataModel;  // ⭐ Alias 추가
+using HNS.Services;
 
 namespace ViewModels.MonitorA
 {
     /// <summary>
     /// 관측소 모니터링 ViewModel
-    /// Monitor A/B 표준 패턴: MonoBehaviour Singleton
+    /// ✅ GET_SENSOR_INFO 통합 프로시저 사용 (Monitor B와 동일)
+    /// ✅ 스케줄러 이벤트 구독: 10분 동기화, 알람 발생/해제
     /// </summary>
     public class ObsMonitoringViewModel : MonoBehaviour
     {
@@ -30,14 +31,19 @@ namespace ViewModels.MonitorA
 
             Instance = this;
             DontDestroyOnLoad(gameObject);
-
             _repository = new ObsMonitoringRepository();
+
+            // ⭐ 스케줄러 이벤트 구독
+            SubscribeToScheduler();
 
             Debug.Log("[ObsMonitoringViewModel] 초기화 완료");
         }
 
         private void OnDestroy()
         {
+            // ⭐ 스케줄러 이벤트 구독 해제
+            UnsubscribeFromScheduler();
+
             if (Instance == this)
             {
                 Instance = null;
@@ -45,12 +51,14 @@ namespace ViewModels.MonitorA
         }
         #endregion
 
-        #region Repository
+        #region Repository & Services
         private ObsMonitoringRepository _repository;
+        private SchedulerService _schedulerService;
         #endregion
 
         #region Current Data
         private int _currentObsId = -1;
+        private bool _isActive = false;  // ⭐ 화면 활성화 상태
         #endregion
 
         #region Unity Events
@@ -72,34 +80,24 @@ namespace ViewModels.MonitorA
         #endregion
 
         #region Public Methods
-        /// <summary>
-        /// 관측소 모니터링 데이터 로드
-        /// </summary>
         public void LoadMonitoringData(int obsId)
         {
             Debug.Log($"[ObsMonitoringViewModel] 데이터 로드 시작: ObsId={obsId}");
-
             _currentObsId = obsId;
+            _isActive = true;  // ⭐ 화면 활성화
             StartCoroutine(LoadDataCoroutine(obsId));
         }
 
-        /// <summary>
-        /// 실시간 센서 값 업데이트 (6초 주기)
-        /// </summary>
         public void UpdateSensorValues(int obsId)
         {
             if (_currentObsId != obsId)
             {
-                Debug.LogWarning($"[ObsMonitoringViewModel] ObsId 불일치: Current={_currentObsId}, Requested={obsId}");
+                Debug.LogWarning($"[ObsMonitoringViewModel] ObsId 불일치");
                 return;
             }
-
-            StartCoroutine(UpdateValuesCoroutine(obsId));
+            LoadMonitoringData(obsId);  // ✅ 전체 재로드 (GET_SENSOR_INFO는 빠름)
         }
 
-        /// <summary>
-        /// 차트 데이터 갱신 (10분 주기용)
-        /// </summary>
         public void RefreshChartData(int obsId)
         {
             if (_currentObsId != obsId)
@@ -107,99 +105,156 @@ namespace ViewModels.MonitorA
                 Debug.LogWarning($"[ObsMonitoringViewModel] ObsId 불일치");
                 return;
             }
-
             StartCoroutine(RefreshChartDataCoroutine(obsId));
         }
 
-        /// <summary>
-        /// 데이터 초기화
-        /// </summary>
         public void ClearData()
         {
             _currentObsId = -1;
+            _isActive = false;  // ⭐ 화면 비활성화
             Debug.Log("[ObsMonitoringViewModel] 데이터 초기화");
         }
 
-        /// <summary>
-        /// 현재 관측소 ID 반환
-        /// </summary>
         public int GetCurrentObsId()
         {
             return _currentObsId;
         }
         #endregion
 
+        #region Scheduler Integration
+        /// <summary>
+        /// 스케줄러 이벤트 구독
+        /// </summary>
+        private void SubscribeToScheduler()
+        {
+            _schedulerService = FindObjectOfType<SchedulerService>();
+
+            if (_schedulerService != null)
+            {
+                // ⭐ 10분 주기 데이터 동기화
+                _schedulerService.OnDataSyncTriggered += OnDataSyncTriggered;
+
+                // ⭐ 알람 발생 시
+                _schedulerService.OnAlarmDetected += OnAlarmDetected;
+
+                // ⭐ 알람 해제 시
+                _schedulerService.OnAlarmCancelled += OnAlarmCancelled;
+
+                Debug.Log("[ObsMonitoringViewModel] 스케줄러 이벤트 구독 완료 (10분 동기화, 알람 발생/해제)");
+            }
+            else
+            {
+                Debug.LogWarning("[ObsMonitoringViewModel] SchedulerService를 찾을 수 없습니다!");
+            }
+        }
+
+        /// <summary>
+        /// 스케줄러 이벤트 구독 해제
+        /// </summary>
+        private void UnsubscribeFromScheduler()
+        {
+            if (_schedulerService != null)
+            {
+                _schedulerService.OnDataSyncTriggered -= OnDataSyncTriggered;
+                _schedulerService.OnAlarmDetected -= OnAlarmDetected;
+                _schedulerService.OnAlarmCancelled -= OnAlarmCancelled;
+                Debug.Log("[ObsMonitoringViewModel] 스케줄러 이벤트 구독 해제");
+            }
+        }
+
+        /// <summary>
+        /// 10분 주기 데이터 동기화
+        /// </summary>
+        private void OnDataSyncTriggered()
+        {
+            // ⭐ 화면이 활성화되어 있고, ObsId가 유효할 때만 갱신
+            if (_isActive && _currentObsId > 0)
+            {
+                Debug.Log($"[ObsMonitoringViewModel] 10분 주기 데이터 동기화: ObsId={_currentObsId}");
+                UpdateSensorValues(_currentObsId);
+            }
+        }
+
+        /// <summary>
+        /// 알람 발생 시 업데이트
+        /// </summary>
+        private void OnAlarmDetected()
+        {
+            // ⭐ 현재 화면이 활성화되어 있을 때만
+            if (_isActive && _currentObsId > 0)
+            {
+                Debug.Log($"[ObsMonitoringViewModel] 알람 발생 업데이트: ObsId={_currentObsId}");
+                UpdateSensorValues(_currentObsId);
+            }
+        }
+
+        /// <summary>
+        /// 알람 해제 시 업데이트
+        /// </summary>
+        private void OnAlarmCancelled()
+        {
+            // ⭐ 현재 화면이 활성화되어 있을 때만
+            if (_isActive && _currentObsId > 0)
+            {
+                Debug.Log($"[ObsMonitoringViewModel] 알람 해제 업데이트: ObsId={_currentObsId}");
+                UpdateSensorValues(_currentObsId);
+            }
+        }
+        #endregion
+
         #region Private Coroutines
         /// <summary>
-        /// 데이터 로드 코루틴 - 4개 동시 호출
+        /// ✅ GET_SENSOR_INFO + GET_CHARTVALUE + GET_SENSOR_STEP (3개만 호출)
         /// </summary>
         private IEnumerator LoadDataCoroutine(int obsId)
         {
-            List<ToxinData> toxinDataList = null;
-            List<CurrentDataModel> currentValues = null;
-            List<ChartDataModel> chartDataList = null;  // ⭐ 추가
+            List<SensorInfoModelA> sensorInfo = null;
+            List<ChartDataModel> chartData = null;
             int sensorStep = 5;
 
-            bool toxinLoaded = false;
-            bool currentLoaded = false;
-            bool chartLoaded = false;  // ⭐ 추가
+            bool sensorLoaded = false;
+            bool chartLoaded = false;
             bool stepLoaded = false;
 
             string errorMsg = null;
 
-            // ⭐ 4개 코루틴 동시 시작
-            StartCoroutine(_repository.GetToxinData(
+            // 1. GET_SENSOR_INFO (설정 + 현재값 통합!) ⭐
+            StartCoroutine(_repository.GetSensorInfo(
                 obsId,
                 data =>
                 {
-                    toxinDataList = data;
-                    toxinLoaded = true;
+                    sensorInfo = data;
+                    sensorLoaded = true;
                 },
                 error =>
                 {
                     errorMsg = $"센서 정보 로드 실패: {error}";
-                    toxinLoaded = true;
+                    sensorLoaded = true;
                 }
             ));
 
-            StartCoroutine(_repository.GetToxinValueLast(
-                obsId,
-                data =>
-                {
-                    currentValues = data;
-                    currentLoaded = true;
-                },
-                error =>
-                {
-                    errorMsg = $"측정값 로드 실패: {error}";
-                    currentLoaded = true;
-                }
-            ));
-
-            // ⭐ 차트 데이터 로드 추가
+            // 2. GET_CHARTVALUE
             DateTime endTime = DateTime.Now;
             endTime = new DateTime(endTime.Year, endTime.Month, endTime.Day,
                                    endTime.Hour, (endTime.Minute / 10) * 10, 0);
             DateTime startTime = endTime.AddHours(-12);
 
             StartCoroutine(_repository.GetChartValue(
-                obsId,
-                startTime,
-                endTime,
-                10,  // 10분 간격
+                obsId, startTime, endTime, 10,
                 data =>
                 {
-                    chartDataList = data;
+                    chartData = data;
                     chartLoaded = true;
                 },
                 error =>
                 {
-                    Debug.LogWarning($"차트 데이터 로드 실패 (빈 배열 사용): {error}");
-                    chartDataList = new List<ChartDataModel>();
+                    Debug.LogWarning($"차트 데이터 로드 실패: {error}");
+                    chartData = new List<ChartDataModel>();
                     chartLoaded = true;
                 }
             ));
 
+            // 3. GET_SENSOR_STEP
             StartCoroutine(_repository.GetSensorStep(
                 obsId,
                 step =>
@@ -209,15 +264,14 @@ namespace ViewModels.MonitorA
                 },
                 error =>
                 {
-                    Debug.LogWarning($"센서 진행 상태 로드 실패 (기본값 사용): {error}");
+                    Debug.LogWarning($"센서 진행 상태 로드 실패: {error}");
                     stepLoaded = true;
                 }
             ));
 
-            // ⭐ 모든 코루틴 완료 대기 (4개)
-            yield return new WaitUntil(() => toxinLoaded && currentLoaded && chartLoaded && stepLoaded);
+            // 3개 완료 대기
+            yield return new WaitUntil(() => sensorLoaded && chartLoaded && stepLoaded);
 
-            // 에러 처리
             if (errorMsg != null)
             {
                 Debug.LogError($"[ObsMonitoringViewModel] {errorMsg}");
@@ -225,205 +279,95 @@ namespace ViewModels.MonitorA
                 yield break;
             }
 
-            // ⭐ 차트 데이터 병합
-            MergeChartData(toxinDataList, chartDataList);
-
-            // 데이터 병합 및 이벤트 발생
-            ProcessAndEmitData(toxinDataList, currentValues, sensorStep);
+            // ViewModel에서 변환
+            var sensorDataList = ConvertToSensorData(sensorInfo, chartData, sensorStep);
+            ProcessAndEmitData(sensorDataList);
         }
 
-        /// <summary>
-        /// 실시간 값 업데이트 코루틴
-        /// </summary>
-        private IEnumerator UpdateValuesCoroutine(int obsId)
-        {
-            List<CurrentDataModel> currentValues = null;
-            bool loaded = false;
-
-            yield return _repository.GetToxinValueLast(
-                obsId,
-                data =>
-                {
-                    currentValues = data;
-                    loaded = true;
-                },
-                error =>
-                {
-                    Debug.LogError($"[ObsMonitoringViewModel] 실시간 값 업데이트 실패: {error}");
-                    loaded = true;
-                }
-            );
-
-            yield return new WaitUntil(() => loaded);
-
-            if (currentValues == null) yield break;
-
-            // TODO: 실시간 업데이트는 기존 데이터와 병합 필요
-            // 현재는 간단히 재로드로 구현
-            LoadMonitoringData(obsId);
-        }
-
-        /// <summary>
-        /// 차트 데이터 갱신 코루틴 (10분 주기)
-        /// </summary>
         private IEnumerator RefreshChartDataCoroutine(int obsId)
         {
-            List<ToxinData> toxinDataList = null;
-            List<ChartDataModel> chartDataList = null;
-            bool toxinLoaded = false;
+            List<SensorInfoModelA> sensorInfo = null;
+            List<ChartDataModel> chartData = null;
+            bool sensorLoaded = false;
             bool chartLoaded = false;
 
-            // 1. 현재 ToxinData 가져오기 (설정 정보)
-            yield return _repository.GetToxinData(
+            yield return _repository.GetSensorInfo(
                 obsId,
                 data =>
                 {
-                    toxinDataList = data;
-                    toxinLoaded = true;
+                    sensorInfo = data;
+                    sensorLoaded = true;
                 },
                 error =>
                 {
                     Debug.LogError($"차트 갱신 실패: {error}");
-                    toxinLoaded = true;
+                    sensorLoaded = true;
                 }
             );
 
-            // 2. 차트 데이터 로드
             DateTime endTime = DateTime.Now;
             endTime = new DateTime(endTime.Year, endTime.Month, endTime.Day,
                                    endTime.Hour, (endTime.Minute / 10) * 10, 0);
             DateTime startTime = endTime.AddHours(-12);
 
             yield return _repository.GetChartValue(
-                obsId,
-                startTime,
-                endTime,
-                10,
+                obsId, startTime, endTime, 10,
                 data =>
                 {
-                    chartDataList = data;
+                    chartData = data;
                     chartLoaded = true;
                 },
                 error =>
                 {
                     Debug.LogWarning($"차트 데이터 로드 실패: {error}");
-                    chartDataList = new List<ChartDataModel>();
+                    chartData = new List<ChartDataModel>();
                     chartLoaded = true;
                 }
             );
 
-            yield return new WaitUntil(() => toxinLoaded && chartLoaded);
+            yield return new WaitUntil(() => sensorLoaded && chartLoaded);
 
-            // 3. 차트 데이터만 병합
-            MergeChartData(toxinDataList, chartDataList);
-
-            Debug.Log("[ObsMonitoringViewModel] 차트 데이터 갱신 완료 (10분 주기)");
+            Debug.Log("[ObsMonitoringViewModel] 차트 데이터 갱신 완료");
         }
         #endregion
 
         #region Private Methods
         /// <summary>
-        /// 차트 데이터를 ToxinData.values에 병합
+        /// ✅ SensorInfoModelA → SensorItemData 변환 (한 번에!)
         /// </summary>
-        private void MergeChartData(List<ToxinData> toxinDataList, List<ChartDataModel> chartDataList)
-        {
-            if (chartDataList == null || chartDataList.Count == 0)
-            {
-                Debug.LogWarning("[ObsMonitoringViewModel] 차트 데이터가 없습니다.");
-                return;
-            }
-
-            Debug.Log($"[ObsMonitoringViewModel] 차트 데이터 병합 시작: {chartDataList.Count}개");
-
-            foreach (var toxin in toxinDataList)
-            {
-                // 해당 센서의 차트 데이터 필터링
-                var sensorChartData = chartDataList
-                    .Where(c => c.boardidx == toxin.boardid && c.hnsidx == toxin.hnsid)
-                    .OrderBy(c => c.obsdt)
-                    .Select(c => c.val)
-                    .ToList();
-
-                // values 설정
-                toxin.values.Clear();
-                toxin.values.AddRange(sensorChartData);
-
-                Debug.Log($"[ObsMonitoringViewModel] {toxin.hnsName}: values={toxin.values.Count}개 병합");
-            }
-        }
-
-        /// <summary>
-        /// 데이터 병합 및 이벤트 발생
-        /// </summary>
-        private void ProcessAndEmitData(
-            List<ToxinData> toxinDataList,
-            List<CurrentDataModel> currentValues,
-            int sensorStep)
-        {
-            if (toxinDataList == null || toxinDataList.Count == 0)
-            {
-                Debug.LogWarning("[ObsMonitoringViewModel] ToxinData가 비어있습니다.");
-                OnError?.Invoke("센서 데이터가 없습니다.");
-                return;
-            }
-
-            // 센서 데이터 병합
-            var allSensors = MergeSensorData(toxinDataList, currentValues, sensorStep);
-
-            // 카테고리별 분류
-            var toxinList = allSensors.Where(s => s.BoardId == 1).ToList();
-            var chemicalList = allSensors.Where(s => s.BoardId == 2 && s.HnsId <= 19).ToList();
-            var qualityList = allSensors.Where(s => s.BoardId == 3 && s.HnsId <= 7).ToList();
-
-            Debug.Log($"[ObsMonitoringViewModel] 데이터 분류 완료: Toxin={toxinList.Count}, Chemical={chemicalList.Count}, Quality={qualityList.Count}");
-
-            // 이벤트 발생
-            OnToxinLoaded?.Invoke(toxinList);
-            OnChemicalLoaded?.Invoke(chemicalList);
-            OnQualityLoaded?.Invoke(qualityList);
-
-            // 보드 에러 상태 업데이트
-            UpdateBoardErrors(toxinList, chemicalList, qualityList);
-        }
-
-        /// <summary>
-        /// ToxinData와 CurrentData 병합
-        /// </summary>
-        private List<SensorItemData> MergeSensorData(
-            List<ToxinData> toxinDataList,
-            List<CurrentDataModel> currentValues,
+        private List<SensorItemData> ConvertToSensorData(
+            List<SensorInfoModelA> sensorInfo,
+            List<ChartDataModel> chartData,
             int sensorStep)
         {
             var result = new List<SensorItemData>();
 
-            Debug.Log($"[ObsMonitoringViewModel] 데이터 병합 시작: ToxinData={toxinDataList?.Count ?? 0}개, CurrentValues={currentValues?.Count ?? 0}개");
+            Debug.Log($"[ObsMonitoringViewModel] 데이터 변환: SensorInfo={sensorInfo.Count}, Chart={chartData.Count}");
 
-            foreach (var toxin in toxinDataList)
+            foreach (var sensor in sensorInfo)
             {
-                // 해당 센서의 최신 측정값 찾기
-                var current = currentValues?.FirstOrDefault(c =>
-                    c.boardidx == toxin.boardid && c.hnsidx == toxin.hnsid);
+                // 해당 센서의 차트 데이터 (72개)
+                var chartValues = chartData
+                    .Where(c => c.boardidx == sensor.BOARDIDX && c.hnsidx == sensor.HNSIDX)
+                    .OrderBy(c => c.obsdt)
+                    .Select(c => c.val)
+                    .ToList();
 
                 var itemData = new SensorItemData
                 {
-                    BoardId = toxin.boardid,
-                    HnsId = toxin.hnsid,
-                    HnsName = toxin.hnsName,
-                    Unit = toxin.unit ?? "",
-                    Serious = toxin.serious,
-                    Warning = toxin.warning,
-                    IsActive = toxin.on,
-                    IsFixing = toxin.fix,
-                    CurrentValue = current?.val ?? 0f,
-                    StateCode = current?.stcd ?? "00",
-                    Status = CalculateStatus(toxin, current, sensorStep),
-                    Values = toxin.values != null ? new List<float>(toxin.values) : new List<float>()  // ⭐ 트렌드 차트용 데이터
+                    BoardId = sensor.BOARDIDX,
+                    HnsId = sensor.HNSIDX,
+                    HnsName = sensor.HNSNM,
+                    Unit = sensor.UNIT ?? "",
+                    Serious = sensor.HI,                    // ✅ 그대로 사용 (9999도 정상값)
+                    Warning = sensor.HIHI,                  // ✅ 그대로 사용 (9999도 정상값)
+                    IsActive = sensor.USEYN?.Trim() == "1",  // ⭐ Trim()
+                    IsFixing = sensor.INSPECTIONFLAG?.Trim() == "1",  // ⭐ Trim()
+                    CurrentValue = sensor.VAL ?? 0f,  // ⭐ VAL 직접 사용!
+                    StateCode = "00",  // GET_SENSOR_INFO에는 stcd 없음
+                    Status = CalculateStatus(sensor, sensorStep),
+                    Values = chartValues
                 };
-
-                Debug.Log($"[ObsMonitoringViewModel] 센서 병합: {itemData.HnsName}");
-                Debug.Log($"  - CurrentValue: {itemData.CurrentValue} (current={(current != null ? "O" : "X")})");
-                Debug.Log($"  - Status: {itemData.Status}");
-                Debug.Log($"  - Values: {itemData.Values.Count}개");
 
                 result.Add(itemData);
             }
@@ -432,37 +376,69 @@ namespace ViewModels.MonitorA
         }
 
         /// <summary>
-        /// 센서 상태 계산 (⭐ stcd 체크 제거)
+        /// 센서 상태 계산
         /// </summary>
-        private ToxinStatus CalculateStatus(ToxinData toxin, CurrentDataModel current, int sensorStep)
+        private ToxinStatus CalculateStatus(SensorInfoModelA sensor, int sensorStep)
         {
-            // 비활성화 또는 점검 중
-            if (!toxin.on || toxin.fix)
+            bool isActive = sensor.USEYN?.Trim() == "1";
+            bool isFixing = sensor.INSPECTIONFLAG?.Trim() == "1";
+
+            // 1. 비활성화 또는 점검 중
+            if (!isActive || isFixing)
+            {
+                Debug.Log($"[CalculateStatus] {sensor.HNSNM} → Purple (isActive={isActive}, isFixing={isFixing})");
                 return ToxinStatus.Purple;
+            }
 
-            // 측정값이 없으면 설비이상
-            if (current == null)
+            // 2. 측정값 없음
+            if (sensor.VAL == null)
+            {
+                Debug.Log($"[CalculateStatus] {sensor.HNSNM} → Purple (VAL is null)");
                 return ToxinStatus.Purple;
+            }
 
-            // ⭐ stcd 체크 제거 (GET_CURRENT_TOXI에 stcd 컬럼 없음)
-            // if (current.stcd != "00")
-            //     return ToxinStatus.Purple;
+            // 3. 임계값 비교 (9999도 정상 임계값으로 사용)
+            float hihi = sensor.HIHI;  // ✅ 그대로 사용
+            float hi = sensor.HI;      // ✅ 그대로 사용
 
-            // ⭐ 임계값 비교 (warning > serious)
-            // 경보(Red): warning 임계값 초과
-            if (toxin.warning > 0 && current.val >= toxin.warning)
+            if (hihi > 0 && sensor.VAL >= hihi)
+            {
+                Debug.Log($"[CalculateStatus] {sensor.HNSNM} → Red (val={sensor.VAL} >= hihi={hihi})");
                 return ToxinStatus.Red;
+            }
 
-            // 경계(Yellow): serious 임계값 초과
-            if (toxin.serious > 0 && current.val >= toxin.serious)
+            if (hi > 0 && sensor.VAL >= hi)
+            {
+                Debug.Log($"[CalculateStatus] {sensor.HNSNM} → Yellow (val={sensor.VAL} >= hi={hi})");
                 return ToxinStatus.Yellow;
+            }
 
+            Debug.Log($"[CalculateStatus] {sensor.HNSNM} → Green (val={sensor.VAL})");
             return ToxinStatus.Green;
         }
 
-        /// <summary>
-        /// 보드별 에러 상태 업데이트
-        /// </summary>
+        private void ProcessAndEmitData(List<SensorItemData> allSensors)
+        {
+            if (allSensors == null || allSensors.Count == 0)
+            {
+                Debug.LogWarning("[ObsMonitoringViewModel] SensorData가 비어있습니다.");
+                OnError?.Invoke("센서 데이터가 없습니다.");
+                return;
+            }
+
+            var toxinList = allSensors.Where(s => s.BoardId == 1).ToList();
+            var chemicalList = allSensors.Where(s => s.BoardId == 2 && s.HnsId <= 19).ToList();
+            var qualityList = allSensors.Where(s => s.BoardId == 3 && s.HnsId <= 7).ToList();
+
+            Debug.Log($"[ObsMonitoringViewModel] 데이터 분류: Toxin={toxinList.Count}, Chemical={chemicalList.Count}, Quality={qualityList.Count}");
+
+            OnToxinLoaded?.Invoke(toxinList);
+            OnChemicalLoaded?.Invoke(chemicalList);
+            OnQualityLoaded?.Invoke(qualityList);
+
+            UpdateBoardErrors(toxinList, chemicalList, qualityList);
+        }
+
         private void UpdateBoardErrors(
             List<SensorItemData> toxinList,
             List<SensorItemData> chemicalList,
