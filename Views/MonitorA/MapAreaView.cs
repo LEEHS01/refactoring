@@ -308,21 +308,10 @@ namespace HNS.MonitorA.Views
 
         #region View 이벤트 핸들러
 
-        private void OnObsMarkerClicked(int obsId)
+        private void OnObsMarkerClicked(int obsId, string obsName)  // ⭐ string 추가
         {
-            LogInfo($"관측소 클릭: ObsId={obsId}");
-
-            if (area3DView == null)
-            {
-                LogError("area3DView가 연결되지 않았습니다! Inspector에서 Area_3D를 연결해주세요.");
-                return;
-            }
-
-            HideMapArea();
-            LogInfo("MapArea 화면 숨김 완료");
-
-            area3DView.ShowObservatory(obsId);
-            LogInfo($"3D 관측소 화면 전환 요청: ObsId={obsId}");
+            string areaName = txtAreaTitle?.text ?? "";
+            area3DView.ShowObservatory(obsId, areaName, obsName);  // ⭐ 3개 전달
         }
         #endregion
 

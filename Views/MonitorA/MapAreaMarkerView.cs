@@ -40,7 +40,7 @@ namespace HNS.MonitorA.Views
         /// <summary>
         /// 관측소 클릭 이벤트
         /// </summary>
-        public event Action<int> OnObsClicked;
+        public event Action<int, string> OnObsClicked;
         #endregion
 
         #region Unity Lifecycle
@@ -112,11 +112,7 @@ namespace HNS.MonitorA.Views
         /// </summary>
         private void OnClick()
         {
-            if (_currentData != null)
-            {
-                OnObsClicked?.Invoke(_currentData.ObsId);
-                Debug.Log($"[MapAreaMarkerView] 관측소 클릭: {_currentData.ObsName} (ID: {_currentData.ObsId})");
-            }
+            OnObsClicked?.Invoke(_currentData.ObsId, _currentData.ObsName);  // ⭐ obsName 추가
         }
 
         /// <summary>

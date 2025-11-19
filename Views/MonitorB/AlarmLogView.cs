@@ -603,6 +603,12 @@ public class AlarmLogView : BaseView
 
         LogInfo($"알람 로그 클릭: {alarmData.areaName} - {alarmData.obsName}");
 
+        // ⭐⭐⭐ 핵심: ViewModel에 알림 (Monitor A/B 자동 업데이트!)
+        if (AlarmLogViewModel.Instance != null)
+        {
+            AlarmLogViewModel.Instance.SelectAlarm(alarmData.logId);
+        }
+
         // 팝업 열기
         if (popupAlarmDetail != null)
         {
@@ -616,28 +622,18 @@ public class AlarmLogView : BaseView
                 alarmData.areaName
             );
         }
-        else
-        {
-            LogError("PopupAlarmDetail이 연결되지 않았습니다! Inspector에서 연결하세요.");
-        }
 
         // 센서 뷰 로드
-        if (monitorBSensorView == null)
+        if (monitorBSensorView != null)
         {
-            LogError("MonitorBSensorView가 연결되지 않았습니다! Inspector에서 연결하세요.");
-            return;
+            monitorBSensorView.LoadObservatory(
+                alarmData.obsId,
+                alarmData.areaName,
+                alarmData.obsName
+            );
         }
 
-        // MVVM 패턴: ViewModel 통해 데이터 로드
-        monitorBSensorView.LoadObservatory(
-            alarmData.obsId,
-            alarmData.areaName,
-            alarmData.obsName
-        );
-
-        LogInfo($"센서 데이터 로드 요청: {alarmData.areaName} - {alarmData.obsName}");
-
-        // 차트 뷰에 독성도 자동 로드
+        // 차트 로드
         LoadDefaultToxicityChart(alarmData.obsId);
     }
 

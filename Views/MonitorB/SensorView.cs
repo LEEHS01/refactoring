@@ -5,13 +5,10 @@ using TMPro;
 using Models.MonitorB;
 using ViewModels.MonitorB;
 using Core;
+using HNS.MonitorA.ViewModels;  // ⭐ 추가
 
 namespace Views.MonitorB
 {
-    /// <summary>
-    /// 모니터B 센서 모니터링 메인 View
-    /// Object Pooling 방식 사용
-    /// </summary>
     public class SensorView : BaseView
     {
         [Header("Title")]
@@ -22,18 +19,21 @@ namespace Views.MonitorB
         [SerializeField] private Transform gridWaterQuality;
         [SerializeField] private Transform gridChemicals;
 
-        // ⭐ 미리 만들어진 아이템들 (Object Pool)
+        [Header("Chart View")]  // ⭐ 추가
+        [SerializeField] private SensorChartView sensorChartView;
+
         private List<SensorItemView> toxinItems = new List<SensorItemView>();
         private List<SensorItemView> wqItems = new List<SensorItemView>();
         private List<SensorItemView> chemicalItems = new List<SensorItemView>();
 
-        private int currentObsId = -1; // 현재 관측소 ID 저장
+        private int currentObsId = -1;
+        private string currentAreaName = "";  // ⭐ 추가
+        private string currentObsName = "";   // ⭐ 추가
 
         #region BaseView 추상 메서드 구현
 
         protected override void InitializeUIComponents()
         {
-            // Inspector 연결 검증
             bool isValid = ValidateComponents(
                 (txtLocationInfo, "txtLocationInfo"),
                 (gridToxin, "gridToxin"),
@@ -47,13 +47,11 @@ namespace Views.MonitorB
                 return;
             }
 
-            // ⭐ Hierarchy에 미리 만들어진 아이템들 찾기
             CollectPoolItems();
         }
 
         protected override void SetupViewEvents()
         {
-            // ⭐ 미리 만들어진 아이템들의 클릭 이벤트 등록
             foreach (var item in toxinItems)
             {
                 if (item != null)
@@ -75,21 +73,32 @@ namespace Views.MonitorB
 
         protected override void ConnectToViewModel()
         {
+            // SensorMonitorViewModel 구독
             if (SensorMonitorViewModel.Instance != null)
             {
                 SensorMonitorViewModel.Instance.OnSensorsLoaded += OnSensorsLoaded;
                 SensorMonitorViewModel.Instance.OnError += OnError;
-                LogInfo("ViewModel 이벤트 구독 완료");
+                LogInfo("SensorMonitorViewModel 이벤트 구독 완료");
             }
             else
             {
                 LogWarning("SensorMonitorViewModel.Instance가 null입니다.");
             }
+
+            // ⭐⭐⭐ 추가: Area3DViewModel 구독 (새 이벤트!)
+            if (Area3DViewModel.Instance != null)
+            {
+                Area3DViewModel.Instance.OnObservatoryLoadedWithNames.AddListener(OnMonitorAObservatoryChanged);
+                LogInfo("Area3DViewModel 이벤트 구독 완료");
+            }
+            else
+            {
+                LogWarning("Area3DViewModel.Instance가 null입니다.");
+            }
         }
 
         protected override void DisconnectViewEvents()
         {
-            // 아이템 클릭 이벤트 해제
             foreach (var item in toxinItems)
             {
                 if (item != null)
@@ -115,7 +124,14 @@ namespace Views.MonitorB
             {
                 SensorMonitorViewModel.Instance.OnSensorsLoaded -= OnSensorsLoaded;
                 SensorMonitorViewModel.Instance.OnError -= OnError;
-                LogInfo("ViewModel 이벤트 구독 해제 완료");
+                LogInfo("SensorMonitorViewModel 이벤트 구독 해제 완료");
+            }
+
+            // ⭐⭐⭐ 추가: Area3DViewModel 구독 해제 (새 이벤트!)
+            if (Area3DViewModel.Instance != null)
+            {
+                Area3DViewModel.Instance.OnObservatoryLoadedWithNames.RemoveListener(OnMonitorAObservatoryChanged);
+                LogInfo("Area3DViewModel 이벤트 구독 해제 완료");
             }
         }
 
@@ -123,12 +139,8 @@ namespace Views.MonitorB
 
         #region Object Pool 초기화
 
-        /// <summary>
-        /// Hierarchy에서 미리 만들어진 아이템들 수집
-        /// </summary>
         private void CollectPoolItems()
         {
-            // Grid_Toxin의 자식들 수집
             if (gridToxin != null)
             {
                 toxinItems.Clear();
@@ -143,7 +155,6 @@ namespace Views.MonitorB
                 LogInfo($"독성 센서 아이템 {toxinItems.Count}개 수집");
             }
 
-            // GridWaterQuality의 자식들 수집
             if (gridWaterQuality != null)
             {
                 wqItems.Clear();
@@ -158,7 +169,6 @@ namespace Views.MonitorB
                 LogInfo($"수질 센서 아이템 {wqItems.Count}개 수집");
             }
 
-            // GridChemicals의 자식들 수집
             if (gridChemicals != null)
             {
                 chemicalItems.Clear();
@@ -178,17 +188,14 @@ namespace Views.MonitorB
 
         #region 공개 메서드
 
-        /// <summary>
-        /// 관측소 센서 데이터 로드 (외부에서 호출)
-        /// </summary>
         public void LoadObservatory(int obsId, string areaName, string obsName)
         {
-            currentObsId = obsId; // 관측소 ID 저장
+            currentObsId = obsId;
+            currentAreaName = areaName;  // ⭐ 저장
+            currentObsName = obsName;    // ⭐ 저장
 
-            if (txtLocationInfo != null)
-            {
-                txtLocationInfo.text = $"{areaName} - {obsName} 실시간 상태";
-            }
+            // ⭐ 타이틀 업데이트
+            UpdateTitle(areaName, obsName);
 
             LogInfo($"관측소 {obsId} 센서 데이터 로드 시작");
 
@@ -202,9 +209,6 @@ namespace Views.MonitorB
             }
         }
 
-        /// <summary>
-        /// 데이터 새로고침 (외부에서 호출 가능)
-        /// </summary>
         public void RefreshData()
         {
             if (SensorMonitorViewModel.Instance != null && currentObsId > 0)
@@ -217,9 +221,18 @@ namespace Views.MonitorB
 
         #region ViewModel 이벤트 핸들러
 
-        /// <summary>
-        /// 센서 데이터 로드 완료 시
-        /// </summary>
+        // ⭐⭐⭐ 추가: Monitor A에서 관측소 선택 시
+        private void OnMonitorAObservatoryChanged(int obsId, string areaName, string obsName)
+        {
+            LogInfo($"✅ Monitor A 관측소 선택 감지 → ObsId={obsId}, Area={areaName}, Obs={obsName}");
+
+            // 1. 타이틀 + 센서 데이터 로드
+            LoadObservatory(obsId, areaName, obsName);
+
+            // 2. ⭐⭐⭐ 기본 차트도 자동 로드
+            LoadDefaultChart(obsId, areaName, obsName);
+        }
+
         private void OnSensorsLoaded(List<SensorInfoData> sensors)
         {
             LogInfo($"센서 데이터 수신: {sensors.Count}개");
@@ -229,22 +242,56 @@ namespace Views.MonitorB
             RenderChemicalSensors();
         }
 
-        /// <summary>
-        /// 에러 발생 시
-        /// </summary>
         private void OnError(string errorMessage)
         {
             LogError($"에러: {errorMessage}");
-            // TODO: 에러 팝업 표시
+        }
+
+        #endregion
+
+        #region 타이틀 업데이트
+
+        // ⭐⭐⭐ 추가: 타이틀 업데이트 메서드
+        private void UpdateTitle(string areaName, string obsName)
+        {
+            if (txtLocationInfo != null)
+            {
+                txtLocationInfo.text = $"{areaName} - {obsName} 실시간 상태";
+                LogInfo($"타이틀 업데이트: {txtLocationInfo.text}");
+            }
+        }
+
+        #endregion
+
+        #region 차트 로드
+
+        // ⭐⭐⭐ 추가: 기본 차트 로드 (독성도)
+        private void LoadDefaultChart(int obsId, string areaName, string obsName)
+        {
+            if (sensorChartView == null)
+            {
+                LogWarning("SensorChartView가 연결되지 않았습니다! Inspector에서 연결하세요.");
+                return;
+            }
+
+            const int DEFAULT_BOARD_ID = 1;
+            const int DEFAULT_HNS_ID = 1;
+            const string DEFAULT_SENSOR_NAME = "독성도";
+
+            LogInfo($"기본 차트 로드: {DEFAULT_SENSOR_NAME} (obsId={obsId})");
+
+            sensorChartView.LoadSensorChart(
+        obsId,
+        DEFAULT_BOARD_ID,
+        DEFAULT_HNS_ID,
+        DEFAULT_SENSOR_NAME
+    );
         }
 
         #endregion
 
         #region 렌더링 메서드 (Object Pooling)
 
-        /// <summary>
-        /// 독성 센서 렌더링 (Board 1)
-        /// </summary>
         private void RenderToxinSensors()
         {
             if (SensorMonitorViewModel.Instance == null) return;
@@ -253,9 +300,6 @@ namespace Views.MonitorB
             RenderSensorGrid(sensors, toxinItems, "독성");
         }
 
-        /// <summary>
-        /// 수질 센서 렌더링 (Board 3)
-        /// </summary>
         private void RenderWaterQualitySensors()
         {
             if (SensorMonitorViewModel.Instance == null) return;
@@ -264,9 +308,6 @@ namespace Views.MonitorB
             RenderSensorGrid(sensors, wqItems, "수질");
         }
 
-        /// <summary>
-        /// 화학물질 센서 렌더링 (Board 2)
-        /// </summary>
         private void RenderChemicalSensors()
         {
             if (SensorMonitorViewModel.Instance == null) return;
@@ -275,9 +316,6 @@ namespace Views.MonitorB
             RenderSensorGrid(sensors, chemicalItems, "화학물질");
         }
 
-        /// <summary>
-        /// Object Pooling 방식으로 센서 렌더링
-        /// </summary>
         private void RenderSensorGrid(
             List<SensorInfoData> sensors,
             List<SensorItemView> itemPool,
@@ -289,42 +327,31 @@ namespace Views.MonitorB
                 return;
             }
 
-            // ⭐ Object Pooling: 활성화/비활성화만!
             for (int i = 0; i < itemPool.Count; i++)
             {
                 if (i < sensors.Count)
                 {
-                    // 활성화 + 데이터 설정
                     itemPool[i].gameObject.SetActive(true);
-                    itemPool[i].SetData(sensors[i], currentObsId); 
+                    itemPool[i].SetData(sensors[i], currentObsId);
                 }
                 else
                 {
-                    // 비활성화
                     itemPool[i].gameObject.SetActive(false);
                 }
             }
 
-            // 아이템이 부족한 경우 경고
             if (sensors.Count > itemPool.Count)
             {
                 LogWarning($"{gridName} 센서가 {sensors.Count}개인데, 아이템은 {itemPool.Count}개만 있습니다!");
             }
         }
 
-        /// <summary>
-        /// 센서 아이템 클릭 시
-        /// </summary>
         private void OnSensorItemClicked(SensorInfoData sensor)
         {
             LogInfo($"센서 선택: {sensor.sensorName} (Board: {sensor.boardIdx}, HNS: {sensor.hnsIdx})");
-
-            // TODO: 차트 패널 표시는 SensorItemView에서 처리됨
         }
 
         #endregion
-
-        #region Unity Editor 전용
 
 #if UNITY_EDITOR
         protected override void OnValidate()
@@ -338,7 +365,5 @@ namespace Views.MonitorB
                 LogWarning("Grid Container가 모두 연결되지 않았습니다.");
         }
 #endif
-
-        #endregion
     }
 }

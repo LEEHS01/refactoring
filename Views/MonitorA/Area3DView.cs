@@ -109,7 +109,10 @@ namespace HNS.MonitorA.Views
                 return;
             }
 
-            Area3DViewModel.Instance.OnObservatoryLoaded.AddListener(OnObservatoryLoaded);
+            // ⭐⭐⭐ 기존 이벤트 대신 새 이벤트 구독!
+            Area3DViewModel.Instance.OnObservatoryLoadedWithNames.AddListener(OnObservatoryLoaded);
+            //                       ^^^^^^^^^^^^^^^^^^^^^^ 이름 변경!
+
             Area3DViewModel.Instance.OnObservatoryClosed.AddListener(OnObservatoryClosed);
             Area3DViewModel.Instance.OnError.AddListener(OnError);
 
@@ -120,7 +123,9 @@ namespace HNS.MonitorA.Views
         {
             if (Area3DViewModel.Instance != null)
             {
-                Area3DViewModel.Instance.OnObservatoryLoaded.RemoveListener(OnObservatoryLoaded);
+                // ⭐⭐⭐ 새 이벤트 구독 해제!
+                Area3DViewModel.Instance.OnObservatoryLoadedWithNames.RemoveListener(OnObservatoryLoaded);
+
                 Area3DViewModel.Instance.OnObservatoryClosed.RemoveListener(OnObservatoryClosed);
                 Area3DViewModel.Instance.OnError.RemoveListener(OnError);
             }
@@ -134,12 +139,12 @@ namespace HNS.MonitorA.Views
 
         #region ViewModel 이벤트 핸들러
 
-        private void OnObservatoryLoaded(int obsId)
+        private void OnObservatoryLoaded(int obsId, string areaName, string obsName)
         {
             _currentObsId = obsId;
 
             LogInfo($"========================================");
-            LogInfo($"3D 관측소 표시: ObsId={obsId}");
+            LogInfo($"3D 관측소 표시: ObsId={obsId}, Area={areaName}, Obs={obsName}");
 
             Show3DScene();
 
@@ -157,7 +162,6 @@ namespace HNS.MonitorA.Views
             LogInfo("3D 화면 활성화 완료");
             LogInfo("========================================");
         }
-
         private void OnObservatoryClosed()
         {
             LogInfo("========================================");
@@ -172,7 +176,6 @@ namespace HNS.MonitorA.Views
                 LogInfo("ObsMonitoring 패널 숨김");
             }
 
-            // ✅ MapArea 복원은 제거 (MapAreaViewModel이 알아서 처리)
             LogInfo("3D 관측소 정리 완료");
             LogInfo("========================================");
         }
@@ -181,17 +184,18 @@ namespace HNS.MonitorA.Views
         {
             LogError($"ViewModel 에러: {errorMessage}");
         }
+
         #endregion
 
         #region 공개 메서드
 
-        public void ShowObservatory(int obsId)
+        public void ShowObservatory(int obsId, string areaName, string obsName)
         {
-            LogInfo($"ShowObservatory 호출: ObsId={obsId}");
+            LogInfo($"ShowObservatory 호출: ObsId={obsId}, Area={areaName}, Obs={obsName}");
 
             if (Area3DViewModel.Instance != null)
             {
-                Area3DViewModel.Instance.LoadObservatory(obsId);
+                Area3DViewModel.Instance.LoadObservatory(obsId, areaName, obsName);  // ⭐ 3개 전달!
             }
             else
             {

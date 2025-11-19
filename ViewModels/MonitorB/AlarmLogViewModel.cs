@@ -4,6 +4,8 @@ using Repositories.MonitorB;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Events;  // ⭐ 추가
+using System;              // ⭐ 추가
 
 namespace ViewModels.MonitorB
 {
@@ -18,6 +20,13 @@ namespace ViewModels.MonitorB
         public List<AlarmLogData> FilteredLogs { get; private set; } = new List<AlarmLogData>();
 
         public event System.Action OnLogsChanged;
+
+        // ⭐⭐⭐ 추가: 알람 선택 이벤트 (Monitor A/B 상호작용용)
+        [Serializable]
+        public class AlarmSelectedEvent : UnityEvent<int> { }  // obsId 전달
+
+        [HideInInspector]
+        public AlarmSelectedEvent OnAlarmSelected = new AlarmSelectedEvent();
 
         // 필터 상태 저장
         private string currentAreaFilter = null;
@@ -46,6 +55,24 @@ namespace ViewModels.MonitorB
             }
         }
 
+        // ⭐⭐⭐ 추가: 알람 선택 메서드 (View에서 호출)
+        public void SelectAlarm(int alarmIdx)
+        {
+            var alarm = AllLogs.Find(a => a.logId == alarmIdx);
+
+            if (alarm == null)
+            {
+                Debug.LogWarning($"[AlarmLogViewModel] 알람을 찾을 수 없음: logId={alarmIdx}");
+                return;
+            }
+
+            Debug.Log($"[AlarmLogViewModel] ✅ 알람 선택: ObsId={alarm.obsId}, Sensor={alarm.sensorName}");
+
+            // ⭐ 이벤트 발생 (Monitor A/B 모두 자동 업데이트!)
+            OnAlarmSelected?.Invoke(alarm.obsId);
+        }
+
+        // 기존 코드 그대로...
         public void LoadAlarmLogs()
         {
             if (DatabaseService.Instance == null)
@@ -59,11 +86,9 @@ namespace ViewModels.MonitorB
 
             Debug.Log("[AlarmLogViewModel] 알람 로그 로드 시작");
 
-            // 변경: Repository 사용
             StartCoroutine(repository.GetHistoricalAlarmLogs(OnLoadSuccess, OnLoadFailed));
         }
 
-        // 성공 콜백
         private void OnLoadSuccess(List<AlarmLogModel> models)
         {
             if (models == null)
@@ -91,13 +116,11 @@ namespace ViewModels.MonitorB
                 alarmValue = m.CURRVAL
             }).ToList();
 
-            // 필터 재적용
             ApplyFilters();
 
             Debug.Log($"[AlarmLogViewModel] 데이터 로드 완료: {AllLogs.Count}개");
         }
 
-        // 실패 콜백
         private void OnLoadFailed(string error)
         {
             Debug.LogError($"[AlarmLogViewModel] 데이터 로드 실패: {error}");
@@ -107,30 +130,19 @@ namespace ViewModels.MonitorB
         }
 
         #region Filtering
-
-        /// <summary>
-        /// 지역별 필터링
-        /// </summary>
-        /// <param name="areaName">지역명 (null이면 필터 해제)</param>
+        // 기존 코드 그대로...
         public void FilterByArea(string areaName)
         {
             currentAreaFilter = areaName;
             ApplyFilters();
         }
 
-        /// <summary>
-        /// 상태별 필터링
-        /// </summary>
-        /// <param name="status">상태 코드 (null이면 필터 해제, 0:설비이상, 1:경계, 2:경보)</param>
         public void FilterByStatus(int? status)
         {
             currentStatusFilter = status;
             ApplyFilters();
         }
 
-        /// <summary>
-        /// 현재 필터 조건에 맞게 FilteredLogs 업데이트
-        /// </summary>
         private void ApplyFilters()
         {
             if (AllLogs == null || AllLogs.Count == 0)
@@ -140,16 +152,13 @@ namespace ViewModels.MonitorB
                 return;
             }
 
-            // 전체 데이터에서 시작
             IEnumerable<AlarmLogData> filtered = AllLogs;
 
-            // 지역 필터 적용
             if (!string.IsNullOrEmpty(currentAreaFilter))
             {
                 filtered = filtered.Where(log => log.areaName == currentAreaFilter);
             }
 
-            // 상태 필터 적용
             if (currentStatusFilter.HasValue)
             {
                 filtered = filtered.Where(log => log.status == currentStatusFilter.Value);
@@ -161,11 +170,10 @@ namespace ViewModels.MonitorB
 
             OnLogsChanged?.Invoke();
         }
-
         #endregion
 
         #region Sorting
-
+        // 기존 코드 그대로...
         public void SortByTime(bool ascending)
         {
             if (FilteredLogs == null || FilteredLogs.Count == 0) return;
@@ -200,7 +208,6 @@ namespace ViewModels.MonitorB
             FilteredLogs = ascending ? FilteredLogs.OrderBy(x => x.status).ToList() : FilteredLogs.OrderByDescending(x => x.status).ToList();
             OnLogsChanged?.Invoke();
         }
-
         #endregion
     }
 }

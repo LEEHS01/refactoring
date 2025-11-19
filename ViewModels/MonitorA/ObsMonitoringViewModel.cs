@@ -8,6 +8,7 @@ using Onthesys;
 using Models.MonitorA;
 using Repositories.MonitorA;
 using HNS.Services;
+using ViewModels.MonitorB;  // ⭐ 추가
 
 namespace ViewModels.MonitorA
 {
@@ -44,6 +45,12 @@ namespace ViewModels.MonitorA
             // ⭐ 스케줄러 이벤트 구독 해제
             UnsubscribeFromScheduler();
 
+            // ⭐⭐⭐ 추가: AlarmLogViewModel 구독 해제
+            if (AlarmLogViewModel.Instance != null)
+            {
+                AlarmLogViewModel.Instance.OnAlarmSelected.RemoveListener(OnAlarmSelected);
+            }
+
             if (Instance == this)
             {
                 Instance = null;
@@ -78,6 +85,33 @@ namespace ViewModels.MonitorA
         public BoardErrorEvent OnBoardErrorChanged = new BoardErrorEvent();
         public ErrorEvent OnError = new ErrorEvent();
         #endregion
+
+        // ⭐⭐⭐ 추가: Start에서 AlarmLogViewModel 구독
+        private void Start()
+        {
+            // Monitor B 알람 선택 시 Monitor A도 자동 업데이트
+            if (AlarmLogViewModel.Instance != null)
+            {
+                AlarmLogViewModel.Instance.OnAlarmSelected.AddListener(OnAlarmSelected);
+                Debug.Log("[ObsMonitoringViewModel] ✅ AlarmLogViewModel 구독 완료");
+            }
+            else
+            {
+                Debug.LogWarning("[ObsMonitoringViewModel] AlarmLogViewModel.Instance가 null!");
+            }
+        }
+
+        // ⭐⭐⭐ 추가: Monitor B에서 알람 선택 시 호출
+        private void OnAlarmSelected(int obsId)
+        {
+            Debug.Log($"[ObsMonitoringViewModel] ✅ Monitor B 알람 선택 감지 → ObsId={obsId}");
+
+            // 화면 활성화 상태일 때만 업데이트
+            if (_isActive)
+            {
+                LoadMonitoringData(obsId);
+            }
+        }
 
         #region Public Methods
         public void LoadMonitoringData(int obsId)
@@ -359,12 +393,12 @@ namespace ViewModels.MonitorA
                     HnsId = sensor.HNSIDX,
                     HnsName = sensor.HNSNM,
                     Unit = sensor.UNIT ?? "",
-                    Serious = sensor.HI,                    // ✅ 그대로 사용 (9999도 정상값)
-                    Warning = sensor.HIHI,                  // ✅ 그대로 사용 (9999도 정상값)
-                    IsActive = sensor.USEYN?.Trim() == "1",  // ⭐ Trim()
-                    IsFixing = sensor.INSPECTIONFLAG?.Trim() == "1",  // ⭐ Trim()
-                    CurrentValue = sensor.VAL ?? 0f,  // ⭐ VAL 직접 사용!
-                    StateCode = "00",  // GET_SENSOR_INFO에는 stcd 없음
+                    Serious = sensor.HI,
+                    Warning = sensor.HIHI,
+                    IsActive = sensor.USEYN?.Trim() == "1",
+                    IsFixing = sensor.INSPECTIONFLAG?.Trim() == "1",
+                    CurrentValue = sensor.VAL ?? 0f,
+                    StateCode = "00",
                     Status = CalculateStatus(sensor, sensorStep),
                     Values = chartValues
                 };
@@ -383,37 +417,29 @@ namespace ViewModels.MonitorA
             bool isActive = sensor.USEYN?.Trim() == "1";
             bool isFixing = sensor.INSPECTIONFLAG?.Trim() == "1";
 
-            // 1. 비활성화 또는 점검 중
             if (!isActive || isFixing)
             {
-                Debug.Log($"[CalculateStatus] {sensor.HNSNM} → Purple (isActive={isActive}, isFixing={isFixing})");
                 return ToxinStatus.Purple;
             }
 
-            // 2. 측정값 없음
             if (sensor.VAL == null)
             {
-                Debug.Log($"[CalculateStatus] {sensor.HNSNM} → Purple (VAL is null)");
                 return ToxinStatus.Purple;
             }
 
-            // 3. 임계값 비교 (9999도 정상 임계값으로 사용)
-            float hihi = sensor.HIHI;  // ✅ 그대로 사용
-            float hi = sensor.HI;      // ✅ 그대로 사용
+            float hihi = sensor.HIHI;
+            float hi = sensor.HI;
 
             if (hihi > 0 && sensor.VAL >= hihi)
             {
-                Debug.Log($"[CalculateStatus] {sensor.HNSNM} → Red (val={sensor.VAL} >= hihi={hihi})");
                 return ToxinStatus.Red;
             }
 
             if (hi > 0 && sensor.VAL >= hi)
             {
-                Debug.Log($"[CalculateStatus] {sensor.HNSNM} → Yellow (val={sensor.VAL} >= hi={hi})");
                 return ToxinStatus.Yellow;
             }
 
-            Debug.Log($"[CalculateStatus] {sensor.HNSNM} → Green (val={sensor.VAL})");
             return ToxinStatus.Green;
         }
 

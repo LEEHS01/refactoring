@@ -4,6 +4,7 @@ using UnityEngine;
 using Models.MonitorB;
 using Repositories.MonitorB;
 using Core;
+using HNS.MonitorA.ViewModels;  // ⭐ 추가
 
 namespace ViewModels.MonitorB
 {
@@ -23,9 +24,9 @@ namespace ViewModels.MonitorB
         private List<SensorInfoData> allSensors = new List<SensorInfoData>();
 
         // Board별 센서 데이터
-        private List<SensorInfoData> toxinSensors = new List<SensorInfoData>();      // Board 1
-        private List<SensorInfoData> chemicalSensors = new List<SensorInfoData>();   // Board 2
-        private List<SensorInfoData> waterQualitySensors = new List<SensorInfoData>(); // Board 3
+        private List<SensorInfoData> toxinSensors = new List<SensorInfoData>();
+        private List<SensorInfoData> chemicalSensors = new List<SensorInfoData>();
+        private List<SensorInfoData> waterQualitySensors = new List<SensorInfoData>();
 
         // 프로퍼티
         public List<SensorInfoData> AllSensors => allSensors;
@@ -52,13 +53,37 @@ namespace ViewModels.MonitorB
             LogInfo("초기화 완료");
         }
 
+        // ⭐⭐⭐ 추가: Start에서 Area3DViewModel 구독
+        private void Start()
+        {
+            if (Area3DViewModel.Instance != null)
+            {
+                // ⭐ 새 이벤트 구독!
+                Area3DViewModel.Instance.OnObservatoryLoadedWithNames.AddListener(OnObservatoryChanged);
+                LogInfo("✅ Area3DViewModel 구독 완료");
+            }
+        }
+
+        // ⭐⭐⭐ 추가: OnDestroy에서 구독 해제
+        private void OnDestroy()
+        {
+            if (Area3DViewModel.Instance != null)
+            {
+                Area3DViewModel.Instance.OnObservatoryLoadedWithNames.RemoveListener(OnObservatoryChanged);
+            }
+        }
+
+        // ⭐⭐⭐ 추가: Monitor A에서 관측소 선택 시 호출
+        private void OnObservatoryChanged(int obsId, string areaName, string obsName)
+        {
+            LogInfo($"✅ Monitor A 관측소 선택: ObsId={obsId}, Area={areaName}, Obs={obsName}");
+            LoadSensorsByObservatory(obsId);
+        }
+
         #endregion
 
         #region Public 메서드
-
-        /// <summary>
-        /// 관측소별 센서 데이터 로드
-        /// </summary>
+        // 기존 코드 그대로...
         public async void LoadSensorsByObservatory(int obsId)
         {
             if (obsId <= 0)
@@ -73,7 +98,6 @@ namespace ViewModels.MonitorB
 
             try
             {
-                // Repository를 통해 데이터 조회
                 var sensors = await SensorRepository.Instance.GetSensorsByObservatoryAsync(obsId);
 
                 if (sensors == null || sensors.Count == 0)
@@ -86,10 +110,8 @@ namespace ViewModels.MonitorB
 
                 LogInfo($"센서 데이터 로드 성공: {sensors.Count}개");
 
-                // Board별 분류
                 ClassifySensorsByBoard(sensors);
 
-                // 이벤트 발생
                 OnSensorsLoaded?.Invoke(allSensors);
             }
             catch (Exception ex)
@@ -99,9 +121,6 @@ namespace ViewModels.MonitorB
             }
         }
 
-        /// <summary>
-        /// 센서 데이터 새로고침
-        /// </summary>
         public void RefreshSensors()
         {
             if (currentObsId > 0)
@@ -113,33 +132,23 @@ namespace ViewModels.MonitorB
                 LogWarning("새로고침할 관측소가 선택되지 않았습니다.");
             }
         }
-
         #endregion
 
         #region Private 메서드
-
-        /// <summary>
-        /// 센서 데이터를 Board별로 분류
-        /// </summary>
+        // 기존 코드 그대로...
         private void ClassifySensorsByBoard(List<SensorInfoData> sensors)
         {
             LogInfo("Board별 센서 분류 시작...");
 
-            // 초기화
             allSensors.Clear();
             toxinSensors.Clear();
             chemicalSensors.Clear();
             waterQualitySensors.Clear();
 
-            // 전체 센서 저장
             allSensors.AddRange(sensors);
 
-            // Board별 분류
             foreach (var sensor in sensors)
             {
-                //Debug.Log($"[센서 분류] {sensor.sensorName} - Board: {sensor.boardIdx}, HNS: {sensor.hnsIdx}, 값: {sensor.currentValue}, 단위: {sensor.unit}");
-
-
                 switch (sensor.boardIdx)
                 {
                     case 1:
@@ -163,9 +172,6 @@ namespace ViewModels.MonitorB
             LogInfo($"  - 수질(Board 3): {waterQualitySensors.Count}개");
         }
 
-        /// <summary>
-        /// 모든 센서 데이터 초기화
-        /// </summary>
         private void ClearAllSensors()
         {
             allSensors.Clear();
@@ -173,11 +179,9 @@ namespace ViewModels.MonitorB
             chemicalSensors.Clear();
             waterQualitySensors.Clear();
         }
-
         #endregion
 
         #region 로깅
-
         private void LogInfo(string message)
         {
             Debug.Log($"[SensorMonitorViewModel] {message}");
@@ -192,7 +196,6 @@ namespace ViewModels.MonitorB
         {
             Debug.LogError($"[SensorMonitorViewModel] {message}");
         }
-
         #endregion
     }
 }
