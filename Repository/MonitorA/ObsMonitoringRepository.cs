@@ -5,49 +5,71 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Models.MonitorA;
+using Models.MonitorB;
+using Repositories.MonitorB;
+using System.Threading.Tasks;
 
 namespace Repositories.MonitorA
 {
     /// <summary>
     /// 관측소 모니터링 데이터 Repository
-    /// ✅ GET_SENSOR_INFO 통합 프로시저 사용 (Monitor B와 동일)
+    /// ✅ SensorRepository 데이터 재사용 (Monitor B와 동일한 데이터 보장)
     /// </summary>
     public class ObsMonitoringRepository
     {
         private DatabaseService Database => DatabaseService.Instance;
 
         /// <summary>
-        /// 센서 정보 + 현재값 통합 조회 (GET_SENSOR_INFO)
-        /// ✅ Monitor B와 동일한 프로시저 사용 - 데이터 일관성 보장!
+        /// ✅ 센서 정보 조회 - SensorRepository 통해서 가져오기!
+        /// Monitor B와 동일한 데이터 보장
         /// </summary>
         public IEnumerator GetSensorInfo(
             int obsId,
-            Action<List<SensorInfoModelA>> onSuccess,
+            Action<List<SensorInfoData>> onSuccess,  // ⭐ SensorInfoData로 변경!
             Action<string> onError)
         {
-            Debug.Log($"[ObsMonitoringRepository] GetSensorInfo: ObsId={obsId}");
+            Debug.Log($"[ObsMonitoringRepository] ✅ SensorRepository를 통해 데이터 로드: ObsId={obsId}");
 
-            var parameters = new Dictionary<string, object>
+            bool isCompleted = false;
+            List<SensorInfoData> result = null;
+            string errorMsg = null;
+
+            // ⭐ SensorRepository의 비동기 메서드 호출
+            Task<List<SensorInfoData>> task = SensorRepository.Instance.GetSensorsByObservatoryAsync(obsId);
+
+            // Task 완료 대기
+            task.ContinueWith(t =>
             {
-                { "OBSIDX", obsId }
-            };
-
-            yield return Database.ExecuteProcedure<SensorInfoModelA>(
-                "GET_SENSOR_INFO",
-                parameters,
-                models =>
+                if (t.IsFaulted)
                 {
-                    if (models == null || models.Count == 0)
-                    {
-                        onError?.Invoke("센서 데이터가 없습니다.");
-                        return;
-                    }
+                    errorMsg = t.Exception?.GetBaseException()?.Message ?? "센서 데이터 로드 실패";
+                    Debug.LogError($"[ObsMonitoringRepository] 에러: {errorMsg}");
+                }
+                else
+                {
+                    result = t.Result;
+                    Debug.Log($"[ObsMonitoringRepository] ✅ SensorRepository 데이터 수신: {result?.Count ?? 0}개");
+                }
+                isCompleted = true;
+            });
 
-                    Debug.Log($"[ObsMonitoringRepository] GetSensorInfo 성공: {models.Count}개");
-                    onSuccess?.Invoke(models);
-                },
-                onError
-            );
+            // 완료 대기
+            yield return new WaitUntil(() => isCompleted);
+
+            if (errorMsg != null)
+            {
+                onError?.Invoke(errorMsg);
+                yield break;
+            }
+
+            if (result == null || result.Count == 0)
+            {
+                onError?.Invoke("센서 데이터가 없습니다.");
+                yield break;
+            }
+
+            Debug.Log($"[ObsMonitoringRepository] ✅ 센서 데이터 반환: {result.Count}개 (Monitor B와 동일 데이터!)");
+            onSuccess?.Invoke(result);
         }
 
         /// <summary>

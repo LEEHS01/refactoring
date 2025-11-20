@@ -1,21 +1,22 @@
-﻿using System;
+﻿using HNS.Services;
+using Models.MonitorA;
+using Models.MonitorB;
+using Onthesys;
+using Repositories.MonitorA;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
-using Onthesys;
-using Models.MonitorA;
-using Repositories.MonitorA;
-using HNS.Services;
-using ViewModels.MonitorB;  // ⭐ 추가
+using ViewModels.MonitorB;
 
 namespace ViewModels.MonitorA
 {
     /// <summary>
     /// 관측소 모니터링 ViewModel
-    /// ✅ GET_SENSOR_INFO 통합 프로시저 사용 (Monitor B와 동일)
-    /// ✅ 스케줄러 이벤트 구독: 10분 동기화, 알람 발생/해제
+    /// ✅ SensorMonitorViewModel 데이터 재사용 (문제 2 해결)
+    /// ✅ 스케줄러 이벤트만 구독 (문제 3 해결)
     /// </summary>
     public class ObsMonitoringViewModel : MonoBehaviour
     {
@@ -42,13 +43,19 @@ namespace ViewModels.MonitorA
 
         private void OnDestroy()
         {
-            // ⭐ 스케줄러 이벤트 구독 해제
+            // 스케줄러 이벤트 구독 해제
             UnsubscribeFromScheduler();
 
-            // ⭐⭐⭐ 추가: AlarmLogViewModel 구독 해제
+            // AlarmLogViewModel 구독 해제
             if (AlarmLogViewModel.Instance != null)
             {
                 AlarmLogViewModel.Instance.OnAlarmSelected.RemoveListener(OnAlarmSelected);
+            }
+
+            // ⭐⭐⭐ SensorMonitorViewModel 구독 해제
+            if (SensorMonitorViewModel.Instance != null)
+            {
+                SensorMonitorViewModel.Instance.OnSensorsLoaded -= OnSensorMonitorLoaded;
             }
 
             if (Instance == this)
@@ -65,7 +72,7 @@ namespace ViewModels.MonitorA
 
         #region Current Data
         private int _currentObsId = -1;
-        private bool _isActive = false;  // ⭐ 화면 활성화 상태
+        private bool _isActive = false;
         #endregion
 
         #region Unity Events
@@ -86,27 +93,45 @@ namespace ViewModels.MonitorA
         public ErrorEvent OnError = new ErrorEvent();
         #endregion
 
-        // ⭐⭐⭐ 추가: Start에서 AlarmLogViewModel 구독
         private void Start()
         {
-            // Monitor B 알람 선택 시 Monitor A도 자동 업데이트
+            // AlarmLogViewModel 구독
             if (AlarmLogViewModel.Instance != null)
             {
                 AlarmLogViewModel.Instance.OnAlarmSelected.AddListener(OnAlarmSelected);
                 Debug.Log("[ObsMonitoringViewModel] ✅ AlarmLogViewModel 구독 완료");
             }
-            else
+
+            // ⭐⭐⭐ SensorMonitorViewModel 구독 (데이터 재사용)
+            if (SensorMonitorViewModel.Instance != null)
             {
-                Debug.LogWarning("[ObsMonitoringViewModel] AlarmLogViewModel.Instance가 null!");
+                SensorMonitorViewModel.Instance.OnSensorsLoaded += OnSensorMonitorLoaded;
+                Debug.Log("[ObsMonitoringViewModel] ✅ SensorMonitorViewModel 구독 완료 (데이터 재사용)");
             }
         }
 
-        // ⭐⭐⭐ 추가: Monitor B에서 알람 선택 시 호출
+        // ⭐⭐⭐ SensorMonitorViewModel에서 데이터 로드 완료 시
+        private void OnSensorMonitorLoaded(List<SensorInfoData> sensors)
+        {
+            // 현재 ObsId와 일치하고, 화면이 활성화되어 있을 때만 처리
+            if (!_isActive || _currentObsId <= 0) return;
+
+            if (SensorMonitorViewModel.Instance.CurrentObsId != _currentObsId)
+            {
+                Debug.LogWarning($"[ObsMonitoringViewModel] ObsId 불일치: Current={_currentObsId}, SensorMonitor={SensorMonitorViewModel.Instance.CurrentObsId}");
+                return;
+            }
+
+            Debug.Log($"[ObsMonitoringViewModel] ✅ SensorMonitorViewModel 데이터 재사용: {sensors.Count}개");
+
+            // ⭐ 차트 데이터만 추가로 로드
+            StartCoroutine(LoadChartDataOnly(_currentObsId, sensors));
+        }
+
         private void OnAlarmSelected(int obsId)
         {
             Debug.Log($"[ObsMonitoringViewModel] ✅ Monitor B 알람 선택 감지 → ObsId={obsId}");
 
-            // 화면 활성화 상태일 때만 업데이트
             if (_isActive)
             {
                 LoadMonitoringData(obsId);
@@ -118,7 +143,22 @@ namespace ViewModels.MonitorA
         {
             Debug.Log($"[ObsMonitoringViewModel] 데이터 로드 시작: ObsId={obsId}");
             _currentObsId = obsId;
-            _isActive = true;  // ⭐ 화면 활성화
+            _isActive = true;
+
+            // ⭐⭐⭐ SensorMonitorViewModel 데이터가 이미 있으면 재사용
+            if (SensorMonitorViewModel.Instance != null &&
+                SensorMonitorViewModel.Instance.CurrentObsId == obsId)
+            {
+                var sensors = SensorMonitorViewModel.Instance.AllSensors;
+                if (sensors != null && sensors.Count > 0)
+                {
+                    Debug.Log($"[ObsMonitoringViewModel] ✅ SensorMonitorViewModel 데이터 재사용: {sensors.Count}개");
+                    StartCoroutine(LoadChartDataOnly(obsId, sensors));
+                    return;
+                }
+            }
+
+            // ⭐ 데이터가 없으면 직접 로드
             StartCoroutine(LoadDataCoroutine(obsId));
         }
 
@@ -129,7 +169,7 @@ namespace ViewModels.MonitorA
                 Debug.LogWarning($"[ObsMonitoringViewModel] ObsId 불일치");
                 return;
             }
-            LoadMonitoringData(obsId);  // ✅ 전체 재로드 (GET_SENSOR_INFO는 빠름)
+            LoadMonitoringData(obsId);
         }
 
         public void RefreshChartData(int obsId)
@@ -145,7 +185,7 @@ namespace ViewModels.MonitorA
         public void ClearData()
         {
             _currentObsId = -1;
-            _isActive = false;  // ⭐ 화면 비활성화
+            _isActive = false;
             Debug.Log("[ObsMonitoringViewModel] 데이터 초기화");
         }
 
@@ -156,25 +196,17 @@ namespace ViewModels.MonitorA
         #endregion
 
         #region Scheduler Integration
-        /// <summary>
-        /// 스케줄러 이벤트 구독
-        /// </summary>
         private void SubscribeToScheduler()
         {
             _schedulerService = FindObjectOfType<SchedulerService>();
 
             if (_schedulerService != null)
             {
-                // ⭐ 10분 주기 데이터 동기화
                 _schedulerService.OnDataSyncTriggered += OnDataSyncTriggered;
-
-                // ⭐ 알람 발생 시
                 _schedulerService.OnAlarmDetected += OnAlarmDetected;
-
-                // ⭐ 알람 해제 시
                 _schedulerService.OnAlarmCancelled += OnAlarmCancelled;
 
-                Debug.Log("[ObsMonitoringViewModel] 스케줄러 이벤트 구독 완료 (10분 동기화, 알람 발생/해제)");
+                Debug.Log("[ObsMonitoringViewModel] 스케줄러 이벤트 구독 완료");
             }
             else
             {
@@ -182,9 +214,6 @@ namespace ViewModels.MonitorA
             }
         }
 
-        /// <summary>
-        /// 스케줄러 이벤트 구독 해제
-        /// </summary>
         private void UnsubscribeFromScheduler()
         {
             if (_schedulerService != null)
@@ -196,53 +225,111 @@ namespace ViewModels.MonitorA
             }
         }
 
-        /// <summary>
-        /// 10분 주기 데이터 동기화
-        /// </summary>
         private void OnDataSyncTriggered()
         {
-            // ⭐ 화면이 활성화되어 있고, ObsId가 유효할 때만 갱신
             if (_isActive && _currentObsId > 0)
             {
-                Debug.Log($"[ObsMonitoringViewModel] 10분 주기 데이터 동기화: ObsId={_currentObsId}");
-                UpdateSensorValues(_currentObsId);
+                Debug.Log($"[ObsMonitoringViewModel] 10분 주기 - SensorMonitorViewModel에게 새로고침 요청");
+
+                // ✅ SensorMonitorViewModel에게 새로고침 요청 (OnSensorMonitorLoaded에서 차트 자동 갱신)
+                if (SensorMonitorViewModel.Instance != null)
+                {
+                    SensorMonitorViewModel.Instance.RefreshSensors();
+                }
             }
         }
 
-        /// <summary>
-        /// 알람 발생 시 업데이트
-        /// </summary>
         private void OnAlarmDetected()
         {
-            // ⭐ 현재 화면이 활성화되어 있을 때만
             if (_isActive && _currentObsId > 0)
             {
-                Debug.Log($"[ObsMonitoringViewModel] 알람 발생 업데이트: ObsId={_currentObsId}");
-                UpdateSensorValues(_currentObsId);
+                Debug.Log($"[ObsMonitoringViewModel] 알람 발생 - SensorMonitorViewModel에게 새로고침 요청");
+
+                // ✅ SensorMonitorViewModel에게 새로고침 요청
+                if (SensorMonitorViewModel.Instance != null)
+                {
+                    SensorMonitorViewModel.Instance.RefreshSensors();
+                }
             }
         }
 
-        /// <summary>
-        /// 알람 해제 시 업데이트
-        /// </summary>
         private void OnAlarmCancelled()
         {
-            // ⭐ 현재 화면이 활성화되어 있을 때만
             if (_isActive && _currentObsId > 0)
             {
-                Debug.Log($"[ObsMonitoringViewModel] 알람 해제 업데이트: ObsId={_currentObsId}");
-                UpdateSensorValues(_currentObsId);
+                Debug.Log($"[ObsMonitoringViewModel] 알람 해제 - SensorMonitorViewModel에게 새로고침 요청");
+
+                // ✅ SensorMonitorViewModel에게 새로고침 요청
+                if (SensorMonitorViewModel.Instance != null)
+                {
+                    SensorMonitorViewModel.Instance.RefreshSensors();
+                }
             }
         }
         #endregion
 
         #region Private Coroutines
         /// <summary>
-        /// ✅ GET_SENSOR_INFO + GET_CHARTVALUE + GET_SENSOR_STEP (3개만 호출)
+        /// ⭐⭐⭐ 새 메서드: SensorMonitorViewModel 데이터 + 차트만 로드
+        /// </summary>
+        private IEnumerator LoadChartDataOnly(int obsId, List<SensorInfoData> sensorInfo)
+        {
+            List<ChartDataModel> chartData = null;
+            int sensorStep = 5;
+            bool chartLoaded = false;
+            bool stepLoaded = false;
+
+            // 1. GET_CHARTVALUE
+            DateTime endTime = DateTime.Now;
+            endTime = new DateTime(endTime.Year, endTime.Month, endTime.Day,
+                                   endTime.Hour, (endTime.Minute / 10) * 10, 0);
+            DateTime startTime = endTime.AddHours(-12);
+
+            StartCoroutine(_repository.GetChartValue(
+                obsId, startTime, endTime, 10,
+                data =>
+                {
+                    chartData = data;
+                    chartLoaded = true;
+                },
+                error =>
+                {
+                    Debug.LogWarning($"차트 데이터 로드 실패: {error}");
+                    chartData = new List<ChartDataModel>();
+                    chartLoaded = true;
+                }
+            ));
+
+            // 2. GET_SENSOR_STEP
+            StartCoroutine(_repository.GetSensorStep(
+                obsId,
+                step =>
+                {
+                    sensorStep = step;
+                    stepLoaded = true;
+                },
+                error =>
+                {
+                    Debug.LogWarning($"센서 진행 상태 로드 실패: {error}");
+                    stepLoaded = true;
+                }
+            ));
+
+            yield return new WaitUntil(() => chartLoaded && stepLoaded);
+
+            Debug.Log($"[ObsMonitoringViewModel] ✅ 차트 데이터 로드 완료 (SensorInfo 재사용)");
+
+            // ViewModel에서 변환
+            var sensorDataList = ConvertToSensorData(sensorInfo, chartData, sensorStep);
+            ProcessAndEmitData(sensorDataList);
+        }
+
+        /// <summary>
+        /// ✅ 직접 로드 (SensorMonitorViewModel 데이터가 없을 때)
         /// </summary>
         private IEnumerator LoadDataCoroutine(int obsId)
         {
-            List<SensorInfoModelA> sensorInfo = null;
+            List<SensorInfoData> sensorInfo = null;
             List<ChartDataModel> chartData = null;
             int sensorStep = 5;
 
@@ -252,7 +339,7 @@ namespace ViewModels.MonitorA
 
             string errorMsg = null;
 
-            // 1. GET_SENSOR_INFO (설정 + 현재값 통합!) ⭐
+            // 1. GET_SENSOR_INFO
             StartCoroutine(_repository.GetSensorInfo(
                 obsId,
                 data =>
@@ -303,7 +390,6 @@ namespace ViewModels.MonitorA
                 }
             ));
 
-            // 3개 완료 대기
             yield return new WaitUntil(() => sensorLoaded && chartLoaded && stepLoaded);
 
             if (errorMsg != null)
@@ -313,14 +399,13 @@ namespace ViewModels.MonitorA
                 yield break;
             }
 
-            // ViewModel에서 변환
             var sensorDataList = ConvertToSensorData(sensorInfo, chartData, sensorStep);
             ProcessAndEmitData(sensorDataList);
         }
 
         private IEnumerator RefreshChartDataCoroutine(int obsId)
         {
-            List<SensorInfoModelA> sensorInfo = null;
+            List<SensorInfoData> sensorInfo = null;
             List<ChartDataModel> chartData = null;
             bool sensorLoaded = false;
             bool chartLoaded = false;
@@ -367,10 +452,10 @@ namespace ViewModels.MonitorA
 
         #region Private Methods
         /// <summary>
-        /// ✅ SensorInfoModelA → SensorItemData 변환 (한 번에!)
+        /// ✅ SensorInfoData → SensorItemData 변환
         /// </summary>
         private List<SensorItemData> ConvertToSensorData(
-            List<SensorInfoModelA> sensorInfo,
+            List<SensorInfoData> sensorInfo,
             List<ChartDataModel> chartData,
             int sensorStep)
         {
@@ -380,7 +465,6 @@ namespace ViewModels.MonitorA
 
             foreach (var sensor in sensorInfo)
             {
-                // 해당 센서의 차트 데이터 (72개)
                 var chartValues = chartData
                     .Where(c => c.boardidx == sensor.BOARDIDX && c.hnsidx == sensor.HNSIDX)
                     .OrderBy(c => c.obsdt)
@@ -397,7 +481,7 @@ namespace ViewModels.MonitorA
                     Warning = sensor.HIHI,
                     IsActive = sensor.USEYN?.Trim() == "1",
                     IsFixing = sensor.INSPECTIONFLAG?.Trim() == "1",
-                    CurrentValue = sensor.VAL ?? 0f,
+                    CurrentValue = sensor.VAL,
                     StateCode = "00",
                     Status = CalculateStatus(sensor, sensorStep),
                     Values = chartValues
@@ -409,10 +493,7 @@ namespace ViewModels.MonitorA
             return result;
         }
 
-        /// <summary>
-        /// 센서 상태 계산
-        /// </summary>
-        private ToxinStatus CalculateStatus(SensorInfoModelA sensor, int sensorStep)
+        private ToxinStatus CalculateStatus(SensorInfoData sensor, int sensorStep)
         {
             bool isActive = sensor.USEYN?.Trim() == "1";
             bool isFixing = sensor.INSPECTIONFLAG?.Trim() == "1";
@@ -422,7 +503,8 @@ namespace ViewModels.MonitorA
                 return ToxinStatus.Purple;
             }
 
-            if (sensor.VAL == null)
+            // ⭐ VAL이 0이면 Purple (측정 안 됨)
+            if (sensor.VAL == 0)
             {
                 return ToxinStatus.Purple;
             }

@@ -1,5 +1,4 @@
-﻿using DG.Tweening;
-using HNS.Services;
+﻿using HNS.Services;
 using Models.MonitorA;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,7 +11,8 @@ namespace Views.MonitorA
 {
     /// <summary>
     /// 관측소 모니터링 패널 View
-    /// Monitor A/B 표준 패턴: MonoBehaviour + ViewModel 이벤트 구독
+    /// ⚡ DOTween 제거: 즉시 렌더링 방식으로 성능 최적화
+    /// ✅ SchedulerService 구독 제거 (ViewModel만 구독)
     /// </summary>
     public class ObsMonitoringView : MonoBehaviour
     {
@@ -32,34 +32,27 @@ namespace Views.MonitorA
         [Header("Settings")]
         [SerializeField] private Button btnSetting;
 
-        [Header("Scheduler")]
-        [SerializeField] private SchedulerService schedulerService;  // ⭐ 스케줄러 연결
-
-        [Header("Animation")]
-        [SerializeField] private Vector3 visiblePosition = new Vector3(-575f, 0f, 0f);  // 표시 위치 (FHD 기준: -575)
-        [SerializeField] private float animationDuration = 1f;
+        [Header("Position Settings")]
+        [SerializeField] private Vector3 visiblePosition = new Vector3(-575f, 0f, 0f);
 
         #region Private Fields
         private List<ObsMonitoringItemView> toxinItems = new();
         private List<ObsMonitoringItemView> chemicalItems = new();
         private List<ObsMonitoringItemView> qualityItems = new();
 
-        private Dictionary<string, Tweener> blinkTweeners = new();
         private int currentObsId = -1;
-        private Vector3 defaultPos;  // 기본 위치
-        private Vector3 scaledVisiblePosition;  // ⭐ 해상도에 맞게 스케일된 위치
+        private Vector3 defaultPos;
+        private Vector3 scaledVisiblePosition;
+
+        private Dictionary<string, bool> boardErrorStates = new();
         #endregion
 
         #region Unity Lifecycle
         private void Start()
         {
-            // 기본 위치 저장
             defaultPos = transform.position;
-
-            // ⭐⭐⭐ 해상도에 따른 위치 스케일링
             CalculateScaledPosition();
 
-            // ⭐ 원본 방식: Start에서 기존 아이템들을 미리 찾아서 캐싱!
             Transform scrollContent = transform.Find("Scroll").Find("Content");
 
             if (toxinContent != null)
@@ -80,7 +73,6 @@ namespace Views.MonitorA
                 Debug.Log($"[ObsMonitoringView] 수질 아이템 {qualityItems.Count}개 캐싱");
             }
 
-            // 초기에는 모든 아이템 비활성화
             toxinItems.ForEach(item => item.gameObject.SetActive(false));
             chemicalItems.ForEach(item => item.gameObject.SetActive(false));
             qualityItems.ForEach(item => item.gameObject.SetActive(false));
@@ -101,32 +93,16 @@ namespace Views.MonitorA
                 Debug.LogError("[ObsMonitoringView] ObsMonitoringViewModel.Instance가 null입니다!");
             }
 
-            // 설정 버튼 이벤트
             if (btnSetting != null)
             {
                 btnSetting.onClick.AddListener(OnSettingButtonClick);
             }
 
-            // ⭐ SchedulerService 이벤트 구독
-            if (schedulerService != null)
-            {
-                schedulerService.OnDataSyncTriggered += OnDataSyncTriggered;      // 10분 주기 정기 업데이트
-                schedulerService.OnAlarmDetected += OnAlarmDetected;              // 알람 발생 시 즉시 업데이트
-                schedulerService.OnAlarmCancelled += OnAlarmCancelled;            // 알람 해제 시 즉시 업데이트
-                Debug.Log("[ObsMonitoringView] SchedulerService 이벤트 구독 완료 (10분 주기 + 알람)");
-            }
-            else
-            {
-                Debug.LogWarning("[ObsMonitoringView] SchedulerService가 연결되지 않았습니다! Inspector에서 연결하세요.");
-            }
-
-            // ⭐ 원본 방식: GameObject는 활성화, 초기 위치는 Canvas 밖 (defaultPos)
-            // Hide() 호출 안 함! 위치만으로 숨김 처리
+            // ❌ SchedulerService 구독 제거 (ViewModel만 구독)
         }
 
         private void OnDestroy()
         {
-            // ViewModel 이벤트 구독 해제
             if (ObsMonitoringViewModel.Instance != null)
             {
                 ObsMonitoringViewModel.Instance.OnToxinLoaded.RemoveListener(OnToxinLoaded);
@@ -138,89 +114,47 @@ namespace Views.MonitorA
                 Debug.Log("[ObsMonitoringView] ViewModel 이벤트 구독 해제");
             }
 
-            // 깜빡임 애니메이션 정리
-            foreach (var tweener in blinkTweeners.Values)
-            {
-                tweener?.Kill();
-            }
-            blinkTweeners.Clear();
-
-            // 버튼 이벤트 해제
             if (btnSetting != null)
             {
                 btnSetting.onClick.RemoveListener(OnSettingButtonClick);
             }
 
-            // ⭐ SchedulerService 이벤트 구독 해제
-            if (schedulerService != null)
-            {
-                schedulerService.OnDataSyncTriggered -= OnDataSyncTriggered;
-                schedulerService.OnAlarmDetected -= OnAlarmDetected;
-                schedulerService.OnAlarmCancelled -= OnAlarmCancelled;
-                Debug.Log("[ObsMonitoringView] SchedulerService 이벤트 구독 해제");
-            }
-
-            // DOTween 정리
-            lblToxin?.DOKill();
-            lblChemical?.DOKill();
-            lblQuality?.DOKill();
-            transform.DOKill();
+            // ❌ SchedulerService 구독 해제 제거
         }
         #endregion
 
         #region Public Methods
         /// <summary>
-        /// 관측소 모니터링 표시 (애니메이션 포함)
+        /// 관측소 모니터링 즉시 표시 (애니메이션 제거)
         /// </summary>
         public void Show(int obsId)
         {
             currentObsId = obsId;
+            ShowPanel();
 
-            // ⭐ 원본 방식: CanvasGroup 사용 안 함, 위치 이동 애니메이션만!
-            PlayShowAnimation();
-
-            // ViewModel에 데이터 요청
             if (ObsMonitoringViewModel.Instance != null)
             {
                 ObsMonitoringViewModel.Instance.LoadMonitoringData(obsId);
             }
 
-            Debug.Log($"[ObsMonitoringView] 표시: ObsId={obsId}");
+            Debug.Log($"[ObsMonitoringView] 즉시 표시: ObsId={obsId}");
         }
 
         /// <summary>
-        /// 관측소 모니터링 숨김 (애니메이션 포함)
+        /// 관측소 모니터링 즉시 숨김 (애니메이션 제거)
         /// </summary>
         public void Hide()
         {
-            // ⭐ 원본 방식: 위치 이동 애니메이션만 (Canvas 밖으로)
-            PlayHideAnimation();
+            HidePanel();
+            ResetAllBoardColors();
 
-            // 깜빡임 애니메이션 정지
-            StopAllBlinking();
-
-            // ViewModel 데이터 정리
             if (ObsMonitoringViewModel.Instance != null)
             {
                 ObsMonitoringViewModel.Instance.ClearData();
             }
 
             currentObsId = -1;
-
-            Debug.Log("[ObsMonitoringView] 숨김");
-        }
-
-        /// <summary>
-        /// 실시간 업데이트 (10분 주기 + 알람 발생/해제 시)
-        /// </summary>
-        public void UpdateRealtime()
-        {
-            if (currentObsId <= 0) return;
-
-            if (ObsMonitoringViewModel.Instance != null)
-            {
-                ObsMonitoringViewModel.Instance.UpdateSensorValues(currentObsId);
-            }
+            Debug.Log("[ObsMonitoringView] 즉시 숨김");
         }
 
         /// <summary>
@@ -238,21 +172,18 @@ namespace Views.MonitorA
         private void OnToxinLoaded(List<SensorItemData> data)
         {
             Debug.Log($"[ObsMonitoringView] 독성도 센서 로드: {data.Count}개");
-            // ⭐ ClearItems 제거! 기존 아이템 재사용
             CreateItems(toxinContent, data, toxinItems);
         }
 
         private void OnChemicalLoaded(List<SensorItemData> data)
         {
             Debug.Log($"[ObsMonitoringView] 화학물질 센서 로드: {data.Count}개");
-            // ⭐ ClearItems 제거! 기존 아이템 재사용
             CreateItems(chemicalContent, data, chemicalItems);
         }
 
         private void OnQualityLoaded(List<SensorItemData> data)
         {
             Debug.Log($"[ObsMonitoringView] 수질 센서 로드: {data.Count}개");
-            // ⭐ ClearItems 제거! 기존 아이템 재사용
             CreateItems(qualityContent, data, qualityItems);
         }
 
@@ -268,14 +199,10 @@ namespace Views.MonitorA
 
             if (targetImage == null) return;
 
-            if (hasError)
-            {
-                StartBlinking(boardType, targetImage);
-            }
-            else
-            {
-                StopBlinking(boardType, targetImage);
-            }
+            boardErrorStates[boardType] = hasError;
+            targetImage.color = hasError ? Color.red : Color.white;
+
+            Debug.Log($"[ObsMonitoringView] 보드 상태 변경: {boardType} = {(hasError ? "에러" : "정상")}");
         }
 
         private void OnError(string errorMessage)
@@ -299,7 +226,6 @@ namespace Views.MonitorA
                 return;
             }
 
-            // ⭐ 센서가 기존 아이템보다 많으면 동적으로 생성
             int needToAddCount = dataList.Count - itemList.Count;
 
             if (needToAddCount > 0)
@@ -318,10 +244,9 @@ namespace Views.MonitorA
                 }
             }
 
-            // ⭐ 센서 데이터를 UI 아이템에 설정 (재사용!)
             for (int i = 0; i < dataList.Count; i++)
             {
-                if (i >= itemList.Count) break;  // 안전장치
+                if (i >= itemList.Count) break;
 
                 ObsMonitoringItemView itemView = itemList[i];
                 SensorItemData data = dataList[i];
@@ -330,13 +255,11 @@ namespace Views.MonitorA
                 itemView.Initialize(data);
             }
 
-            // ⭐ 사용하지 않는 아이템 숨김 (Destroy 안 함!)
             for (int i = dataList.Count; i < itemList.Count; i++)
             {
                 itemList[i].gameObject.SetActive(false);
             }
 
-            // 레이아웃 즉시 재계산
             RectTransform rt = parent.GetComponent<RectTransform>();
             if (rt != null)
             {
@@ -353,16 +276,10 @@ namespace Views.MonitorA
         /// </summary>
         private void CalculateScaledPosition()
         {
-            // FHD 기준 해상도
             Vector2 referenceFHD = new Vector2(1920f, 1080f);
-
-            // 실제 화면 해상도
             Vector2 actualScreenSize = new Vector2(Screen.width, Screen.height);
-
-            // 해상도 비율 계산
             float scaleX = actualScreenSize.x / referenceFHD.x;
 
-            // visiblePosition에 비율 적용
             scaledVisiblePosition = new Vector3(
                 visiblePosition.x * scaleX,
                 visiblePosition.y,
@@ -373,60 +290,34 @@ namespace Views.MonitorA
         }
         #endregion
 
-        #region Private Methods - Animations
+        #region Private Methods - Panel Show/Hide
         /// <summary>
-        /// 표시 애니메이션 (Canvas 밖 → 안으로 슬라이드)
+        /// 패널 즉시 표시 (애니메이션 제거)
         /// </summary>
-        private void PlayShowAnimation()
+        private void ShowPanel()
         {
-            // ⭐⭐⭐ 스케일된 위치 사용!
             Vector3 targetPos = defaultPos + scaledVisiblePosition;
-
-            transform.DOKill();
-            transform.DOMove(targetPos, animationDuration)
-                .SetEase(Ease.OutQuad);
+            transform.position = targetPos;
+            Debug.Log($"[ObsMonitoringView] 패널 즉시 표시: {targetPos}");
         }
 
         /// <summary>
-        /// 숨김 애니메이션 (Canvas 안 → 밖으로 슬라이드)
+        /// 패널 즉시 숨김 (애니메이션 제거)
         /// </summary>
-        private void PlayHideAnimation()
+        private void HidePanel()
         {
-            transform.DOKill();
-            transform.DOMove(defaultPos, animationDuration)
-                .SetEase(Ease.OutQuad);
+            transform.position = defaultPos;
+            Debug.Log($"[ObsMonitoringView] 패널 즉시 숨김: {defaultPos}");
         }
         #endregion
 
-        #region Private Methods - Blinking Effects
-        private void StartBlinking(string key, Image image)
+        #region Private Methods - Board Color Management
+        /// <summary>
+        /// 모든 보드 색상 초기화
+        /// </summary>
+        private void ResetAllBoardColors()
         {
-            if (blinkTweeners.ContainsKey(key)) return;
-
-            var tweener = image.DOColor(Color.red, 0.5f)
-                .SetLoops(-1, LoopType.Yoyo)
-                .SetEase(Ease.InOutSine);
-
-            blinkTweeners[key] = tweener;
-        }
-
-        private void StopBlinking(string key, Image image)
-        {
-            if (blinkTweeners.ContainsKey(key))
-            {
-                blinkTweeners[key]?.Kill();
-                blinkTweeners.Remove(key);
-                image.color = Color.white;
-            }
-        }
-
-        private void StopAllBlinking()
-        {
-            foreach (var tweener in blinkTweeners.Values)
-            {
-                tweener?.Kill();
-            }
-            blinkTweeners.Clear();
+            boardErrorStates.Clear();
 
             if (lblToxin != null) lblToxin.color = Color.white;
             if (lblChemical != null) lblChemical.color = Color.white;
@@ -438,52 +329,12 @@ namespace Views.MonitorA
         private void OnSettingButtonClick()
         {
             Debug.Log("[ObsMonitoringView] 설정 버튼 클릭");
-            // TODO: 설정 팝업 표시
-        }
-        #endregion
-
-        #region Private Methods - Scheduler Handlers
-        /// <summary>
-        /// 10분 주기 정기 업데이트
-        /// </summary>
-        private void OnDataSyncTriggered()
-        {
-            // currentObsId가 -1이면 숨김 상태 → 업데이트 안 함!
-            if (currentObsId <= 0) return;
-
-            Debug.Log("[ObsMonitoringView] 10분 주기 업데이트");
-            UpdateRealtime();
-        }
-
-        /// <summary>
-        /// 알람 발생 시 즉시 업데이트
-        /// </summary>
-        private void OnAlarmDetected()
-        {
-            // currentObsId가 -1이면 숨김 상태 → 업데이트 안 함!
-            if (currentObsId <= 0) return;
-
-            Debug.Log("[ObsMonitoringView] 알람 발생 - 즉시 업데이트");
-            UpdateRealtime();
-        }
-
-        /// <summary>
-        /// 알람 해제 시 즉시 업데이트
-        /// </summary>
-        private void OnAlarmCancelled()
-        {
-            // currentObsId가 -1이면 숨김 상태 → 업데이트 안 함!
-            if (currentObsId <= 0) return;
-
-            Debug.Log("[ObsMonitoringView] 알람 해제 - 즉시 업데이트");
-            UpdateRealtime();
         }
         #endregion
 
         #region Inspector Validation
         private void OnValidate()
         {
-            // ⭐ 원본 방식: CanvasGroup 사용 안 함
         }
         #endregion
     }

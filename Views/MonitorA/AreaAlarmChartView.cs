@@ -1,5 +1,4 @@
 ﻿using Core;
-using DG.Tweening;
 using HNS.MonitorA.Models;
 using HNS.MonitorA.ViewModels;
 using System.Collections.Generic;
@@ -12,6 +11,7 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
     /// 지역 알람 차트 View (12개월 히스토그램 + 범례)
     /// Monitor A 지역 상세 화면에서 표시
     /// ✅ MapAreaView 패턴 적용: GameObject는 항상 active, CanvasGroup으로 표시/숨김
+    /// ⚡ DOTween 제거: 즉시 렌더링 방식으로 성능 최적화
     /// </summary>
     public class AreaAlarmChartView : BaseView
     {
@@ -40,10 +40,8 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
         [Header("12 Month Histogram")]
         [SerializeField] private Transform histogramParent; // Panel_Histogram
 
-        [Header("Animation Settings")]
+        [Header("Position Settings")]
         [SerializeField] private float slideDistance = 400f;
-        [SerializeField] private float animationDuration = 1f;
-        [SerializeField] private float barAnimationDuration = 0.5f;
 
         #endregion
 
@@ -232,7 +230,7 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
         #region ViewModel 이벤트 핸들러
 
         /// <summary>
-        /// 지역 진입 → 차트 표시
+        /// 지역 진입 → 차트 즉시 표시 (애니메이션 제거)
         /// </summary>
         private void OnAreaEntered(int areaId)
         {
@@ -245,35 +243,20 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
                 return;
             }
 
-            // ⭐ 기존 애니메이션 중지
-            chartRectTransform.DOKill();
-            canvasGroup.DOKill();
+            // ⚡ 이전 차트 데이터 즉시 초기화 (렌더링 지연 방지)
+            ClearChartData();
 
-            // CanvasGroup alpha 0에서 시작
-            canvasGroup.alpha = 0f;
-            canvasGroup.interactable = false;
-            canvasGroup.blocksRaycasts = false;
+            // ⚡ 즉시 표시 (애니메이션 제거)
+            chartRectTransform.anchoredPosition = _visiblePosition;
+            canvasGroup.alpha = 1f;
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
 
-            // 초기 위치를 숨김 위치로 설정
-            chartRectTransform.anchoredPosition = _hiddenPosition;
-
-            // 위치 애니메이션
-            chartRectTransform
-                .DOAnchorPos(_visiblePosition, animationDuration)
-                .SetEase(Ease.OutQuad);
-
-            // CanvasGroup 페이드 인 애니메이션
-            canvasGroup.DOFade(1f, animationDuration)
-                .OnComplete(() =>
-                {
-                    canvasGroup.interactable = true;
-                    canvasGroup.blocksRaycasts = true;
-                    LogInfo("차트 표시 완료!");
-                });
+            LogInfo("차트 즉시 표시 완료!");
         }
 
         /// <summary>
-        /// 지역 퇴장 → 차트 숨김
+        /// 지역 퇴장 → 차트 즉시 숨김 (애니메이션 제거)
         /// </summary>
         private void OnAreaExited()
         {
@@ -285,52 +268,31 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
                 return;
             }
 
-            // ⭐ 기존 애니메이션 중지
-            chartRectTransform.DOKill();
-            canvasGroup.DOKill();
-
-            // 위치 애니메이션
-            chartRectTransform
-                .DOAnchorPos(_hiddenPosition, animationDuration)
-                .SetEase(Ease.InQuad);
-
-            // CanvasGroup 페이드 아웃
+            // ⚡ 즉시 숨김 (애니메이션 제거)
+            chartRectTransform.anchoredPosition = _hiddenPosition;
+            canvasGroup.alpha = 0f;
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
 
-            canvasGroup.DOFade(0f, animationDuration)
-                .OnComplete(() =>
-                {
-                    LogInfo("차트 숨김 완료!");
-                });
+            LogInfo("차트 즉시 숨김 완료!");
         }
 
         /// <summary>
-        /// 관측소 열림 → 차트는 그대로 유지 (관측소 화면에서도 차트 보임)
+        /// 관측소 열림 → 차트 즉시 숨김
         /// </summary>
         private void OnObservatoryOpened(int obsId)
         {
             LogInfo($"관측소 열림: ObsId={obsId} - 차트 즉시 숨김");
-
-            // ⭐ 기존 애니메이션 중지
-            chartRectTransform.DOKill();
-            canvasGroup.DOKill();
-
             HideChart();
         }
 
         /// <summary>
-        /// 관측소 닫힘 → 차트 그대로 유지 (이미 표시 중)
+        /// 관측소 닫힘 → 차트 즉시 다시 표시
         /// </summary>
         private void OnObservatoryClosed()
         {
-            LogInfo("관측소 닫힘 - 차트 다시 표시");
-
-            // ⭐ 기존 애니메이션 중지
-            chartRectTransform.DOKill();
-            canvasGroup.DOKill();
-
-            ShowChartAnimated();
+            LogInfo("관측소 닫힘 - 차트 즉시 표시");
+            ShowChart();
         }
 
         /// <summary>
@@ -345,41 +307,7 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
             }
 
             LogInfo($"차트 데이터 수신: {data.AreaName}");
-
-            // ⭐ 막대 애니메이션 중지
-            if (_histogramMonths != null)
-            {
-                foreach (var month in _histogramMonths)
-                {
-                    if (month != null)
-                    {
-                        month.DOKill(true); // 모든 자식의 애니메이션도 중지
-                    }
-                }
-            }
-
             UpdateChartData(data);
-        }
-
-        private void ShowChartAnimated()
-        {
-            if (canvasGroup == null)
-            {
-                LogError("CanvasGroup이 null입니다!");
-                return;
-            }
-
-            // ⭐ 기존 애니메이션 중지 (이미 위에서 했지만 안전장치)
-            canvasGroup.DOKill();
-
-            // CanvasGroup 페이드 인 애니메이션
-            canvasGroup.DOFade(1f, animationDuration)
-                .OnComplete(() =>
-                {
-                    canvasGroup.interactable = true;
-                    canvasGroup.blocksRaycasts = true;
-                    LogInfo("차트 표시 완료 (애니메이션)");
-                });
         }
 
         /// <summary>
@@ -395,7 +323,24 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
         #region 차트 표시/숨김
 
         /// <summary>
-        /// 차트 숨김 (CanvasGroup 사용)
+        /// 차트 즉시 표시 (애니메이션 제거)
+        /// </summary>
+        private void ShowChart()
+        {
+            if (canvasGroup == null)
+            {
+                LogError("CanvasGroup이 null입니다!");
+                return;
+            }
+
+            canvasGroup.alpha = 1f;
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+            LogInfo("차트 즉시 표시 완료");
+        }
+
+        /// <summary>
+        /// 차트 즉시 숨김 (CanvasGroup 사용)
         /// </summary>
         private void HideChart()
         {
@@ -410,6 +355,58 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
             {
                 LogError("HideChart() 실행 실패: CanvasGroup이 null!");
             }
+        }
+
+        #endregion
+
+        #region 차트 초기화
+
+        /// <summary>
+        /// 차트 데이터 즉시 초기화 (지역 전환 시 이전 데이터 제거)
+        /// </summary>
+        private void ClearChartData()
+        {
+            LogInfo("차트 데이터 초기화 시작");
+
+            // 1. 타이틀 초기화
+            if (txtChartTitle != null)
+            {
+                txtChartTitle.text = "로딩 중...";
+            }
+
+            // 2. 범례 초기화
+            if (txtLegendA != null) txtLegendA.text = "-";
+            if (txtLegendB != null) txtLegendB.text = "-";
+            if (txtLegendC != null) txtLegendC.text = "-";
+
+            // 3. 월 라벨 초기화
+            if (lblMonthTexts != null)
+            {
+                foreach (var label in lblMonthTexts)
+                {
+                    if (label != null) label.text = "";
+                }
+            }
+
+            // 4. Y축 라벨 초기화
+            if (lblCountValues != null)
+            {
+                foreach (var label in lblCountValues)
+                {
+                    if (label != null) label.text = "0";
+                }
+            }
+
+            // 5. 모든 막대 초기화 (scaleY = 0)
+            if (_histogramMonths != null)
+            {
+                foreach (var month in _histogramMonths)
+                {
+                    ResetMonthBars(month);
+                }
+            }
+
+            LogInfo("차트 데이터 초기화 완료");
         }
 
         #endregion
@@ -444,7 +441,7 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
             // 4. Y축 값 업데이트
             UpdateYAxisLabels(data.MaxAlarmCount);
 
-            // 5. 12개월 막대 애니메이션
+            // 5. 12개월 막대 즉시 업데이트 (애니메이션 제거)
             UpdateHistogramBars(data.MonthlyData);
 
             LogInfo($"========== 차트 업데이트 완료 ==========");
@@ -457,18 +454,15 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
         {
             if (observatoryNames == null || observatoryNames.Count < 3)
             {
-                LogWarning($"관측소 이름 개수 부족: {observatoryNames?.Count ?? 0}개");
+                LogWarning($"관측소 이름 개수 부족: {observatoryNames?.Count ?? 0}개 (예상: 3개)");
                 return;
             }
 
-            if (txtLegendA != null)
-                txtLegendA.text = observatoryNames[0];
+            if (txtLegendA != null) txtLegendA.text = observatoryNames[0];
+            if (txtLegendB != null) txtLegendB.text = observatoryNames[1];
+            if (txtLegendC != null) txtLegendC.text = observatoryNames[2];
 
-            if (txtLegendB != null)
-                txtLegendB.text = observatoryNames[1];
-
-            if (txtLegendC != null)
-                txtLegendC.text = observatoryNames[2];
+            LogInfo($"범례 업데이트: {observatoryNames[0]}, {observatoryNames[1]}, {observatoryNames[2]}");
         }
 
         /// <summary>
@@ -476,39 +470,50 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
         /// </summary>
         private void UpdateMonthLabels(List<string> monthLabels)
         {
-            if (lblMonthTexts == null || monthLabels == null)
+            if (monthLabels == null || lblMonthTexts == null)
+            {
+                LogWarning("월 라벨 데이터 또는 UI가 null!");
                 return;
+            }
 
-            for (int i = 0; i < lblMonthTexts.Count && i < monthLabels.Count; i++)
+            for (int i = 0; i < Mathf.Min(monthLabels.Count, lblMonthTexts.Count); i++)
             {
                 if (lblMonthTexts[i] != null)
                 {
                     lblMonthTexts[i].text = monthLabels[i];
                 }
             }
+
+            LogInfo($"월 라벨 업데이트 완료: {string.Join(", ", monthLabels)}");
         }
 
         /// <summary>
-        /// Y축 라벨 업데이트 (위에서 아래: 최대값 → 0)
+        /// Y축 라벨 업데이트 (최대값 기준)
         /// </summary>
-        private void UpdateYAxisLabels(int maxValue)
+        private void UpdateYAxisLabels(int maxAlarmCount)
         {
             if (lblCountValues == null || lblCountValues.Count == 0)
+            {
+                LogWarning("Y축 라벨이 null!");
                 return;
+            }
 
-            // 원본 프로젝트 방식: 위에서 아래로 (최대값 → 0)
-            for (int i = lblCountValues.Count - 1; i >= 0; i--)
+            // 최대값을 4등분
+            int interval = Mathf.CeilToInt(maxAlarmCount / 4f);
+
+            for (int i = 0; i < lblCountValues.Count; i++)
             {
                 if (lblCountValues[i] != null)
                 {
-                    int value = Mathf.RoundToInt((float)maxValue * i / (lblCountValues.Count - 1));
-                    lblCountValues[i].text = value.ToString("N0"); // 천단위 쉼표
+                    lblCountValues[i].text = (interval * (i + 1)).ToString();
                 }
             }
+
+            LogInfo($"Y축 라벨 업데이트: 최대값={maxAlarmCount}, 간격={interval}");
         }
 
         /// <summary>
-        /// 12개월 막대 차트 애니메이션
+        /// 12개월 막대 즉시 업데이트 (애니메이션 제거로 성능 최적화)
         /// </summary>
         private void UpdateHistogramBars(List<MonthlyAlarmData> monthlyData)
         {
@@ -534,7 +539,7 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
 
             LogInfo("막대 초기화 완료");
 
-            // 각 월 데이터 적용
+            // 각 월 데이터 즉시 적용
             for (int i = 0; i < 12; i++)
             {
                 Transform monthTransform = _histogramMonths[i];
@@ -551,23 +556,20 @@ namespace Assets.Scripts_refactoring.Views.MonitorA
                 if (barB == null) LogWarning($"[{i}월] Orange 막대를 찾을 수 없습니다!");
                 if (barC == null) LogWarning($"[{i}월] Green 막대를 찾을 수 없습니다!");
 
-                // DOTween 애니메이션 (barAnimationDuration초 동안 scaleY 변경)
+                // ⚡ DOTween 제거: 즉시 적용으로 성능 최적화
                 if (barA != null)
                 {
-                    barA.DOScaleY(data.ObsA_Normalized, barAnimationDuration)
-                        .SetEase(Ease.OutQuad);
+                    barA.localScale = new Vector3(1f, data.ObsA_Normalized, 1f);
                 }
 
                 if (barB != null)
                 {
-                    barB.DOScaleY(data.ObsB_Normalized, barAnimationDuration)
-                        .SetEase(Ease.OutQuad);
+                    barB.localScale = new Vector3(1f, data.ObsB_Normalized, 1f);
                 }
 
                 if (barC != null)
                 {
-                    barC.DOScaleY(data.ObsC_Normalized, barAnimationDuration)
-                        .SetEase(Ease.OutQuad);
+                    barC.localScale = new Vector3(1f, data.ObsC_Normalized, 1f);
                 }
             }
 

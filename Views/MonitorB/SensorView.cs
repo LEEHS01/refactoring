@@ -1,14 +1,16 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
 using Models.MonitorB;
 using ViewModels.MonitorB;
 using Core;
-using HNS.MonitorA.ViewModels;  // ⭐ 추가
 
 namespace Views.MonitorB
 {
+    /// <summary>
+    /// Monitor B 센서 모니터링 View
+    /// ✅ Area3DViewModel 구독 제거 (SensorMonitorViewModel만 구독)
+    /// </summary>
     public class SensorView : BaseView
     {
         [Header("Title")]
@@ -19,7 +21,7 @@ namespace Views.MonitorB
         [SerializeField] private Transform gridWaterQuality;
         [SerializeField] private Transform gridChemicals;
 
-        [Header("Chart View")]  // ⭐ 추가
+        [Header("Chart View")]
         [SerializeField] private SensorChartView sensorChartView;
 
         private List<SensorItemView> toxinItems = new List<SensorItemView>();
@@ -27,8 +29,8 @@ namespace Views.MonitorB
         private List<SensorItemView> chemicalItems = new List<SensorItemView>();
 
         private int currentObsId = -1;
-        private string currentAreaName = "";  // ⭐ 추가
-        private string currentObsName = "";   // ⭐ 추가
+        private string currentAreaName = "";
+        private string currentObsName = "";
 
         #region BaseView 추상 메서드 구현
 
@@ -73,7 +75,7 @@ namespace Views.MonitorB
 
         protected override void ConnectToViewModel()
         {
-            // SensorMonitorViewModel 구독
+            // ✅ SensorMonitorViewModel만 구독
             if (SensorMonitorViewModel.Instance != null)
             {
                 SensorMonitorViewModel.Instance.OnSensorsLoaded += OnSensorsLoaded;
@@ -85,16 +87,7 @@ namespace Views.MonitorB
                 LogWarning("SensorMonitorViewModel.Instance가 null입니다.");
             }
 
-            // ⭐⭐⭐ 추가: Area3DViewModel 구독 (새 이벤트!)
-            if (Area3DViewModel.Instance != null)
-            {
-                Area3DViewModel.Instance.OnObservatoryLoadedWithNames.AddListener(OnMonitorAObservatoryChanged);
-                LogInfo("Area3DViewModel 이벤트 구독 완료");
-            }
-            else
-            {
-                LogWarning("Area3DViewModel.Instance가 null입니다.");
-            }
+            // ❌ Area3DViewModel 구독 제거 (SensorMonitorViewModel이 이미 구독 중)
         }
 
         protected override void DisconnectViewEvents()
@@ -127,12 +120,7 @@ namespace Views.MonitorB
                 LogInfo("SensorMonitorViewModel 이벤트 구독 해제 완료");
             }
 
-            // ⭐⭐⭐ 추가: Area3DViewModel 구독 해제 (새 이벤트!)
-            if (Area3DViewModel.Instance != null)
-            {
-                Area3DViewModel.Instance.OnObservatoryLoadedWithNames.RemoveListener(OnMonitorAObservatoryChanged);
-                LogInfo("Area3DViewModel 이벤트 구독 해제 완료");
-            }
+            // ❌ Area3DViewModel 구독 해제 제거
         }
 
         #endregion
@@ -191,22 +179,15 @@ namespace Views.MonitorB
         public void LoadObservatory(int obsId, string areaName, string obsName)
         {
             currentObsId = obsId;
-            currentAreaName = areaName;  // ⭐ 저장
-            currentObsName = obsName;    // ⭐ 저장
+            currentAreaName = areaName;
+            currentObsName = obsName;
 
-            // ⭐ 타이틀 업데이트
             UpdateTitle(areaName, obsName);
 
             LogInfo($"관측소 {obsId} 센서 데이터 로드 시작");
 
-            if (SensorMonitorViewModel.Instance != null)
-            {
-                SensorMonitorViewModel.Instance.LoadSensorsByObservatory(obsId);
-            }
-            else
-            {
-                LogError("SensorMonitorViewModel.Instance가 null입니다!");
-            }
+            // ✅ SensorMonitorViewModel이 자동으로 Area3DViewModel 구독하고 있음
+            // View는 그냥 타이틀만 업데이트
         }
 
         public void RefreshData()
@@ -221,18 +202,6 @@ namespace Views.MonitorB
 
         #region ViewModel 이벤트 핸들러
 
-        // ⭐⭐⭐ 추가: Monitor A에서 관측소 선택 시
-        private void OnMonitorAObservatoryChanged(int obsId, string areaName, string obsName)
-        {
-            LogInfo($"✅ Monitor A 관측소 선택 감지 → ObsId={obsId}, Area={areaName}, Obs={obsName}");
-
-            // 1. 타이틀 + 센서 데이터 로드
-            LoadObservatory(obsId, areaName, obsName);
-
-            // 2. ⭐⭐⭐ 기본 차트도 자동 로드
-            LoadDefaultChart(obsId, areaName, obsName);
-        }
-
         private void OnSensorsLoaded(List<SensorInfoData> sensors)
         {
             LogInfo($"센서 데이터 수신: {sensors.Count}개");
@@ -240,6 +209,9 @@ namespace Views.MonitorB
             RenderToxinSensors();
             RenderWaterQualitySensors();
             RenderChemicalSensors();
+
+            // ⭐ 기본 차트 자동 로드 (독성도)
+            LoadDefaultChart();
         }
 
         private void OnError(string errorMessage)
@@ -251,7 +223,6 @@ namespace Views.MonitorB
 
         #region 타이틀 업데이트
 
-        // ⭐⭐⭐ 추가: 타이틀 업데이트 메서드
         private void UpdateTitle(string areaName, string obsName)
         {
             if (txtLocationInfo != null)
@@ -265,32 +236,43 @@ namespace Views.MonitorB
 
         #region 차트 로드
 
-        // ⭐⭐⭐ 추가: 기본 차트 로드 (독성도)
-        private void LoadDefaultChart(int obsId, string areaName, string obsName)
+        private void LoadDefaultChart()
         {
             if (sensorChartView == null)
             {
-                LogWarning("SensorChartView가 연결되지 않았습니다! Inspector에서 연결하세요.");
+                LogWarning("SensorChartView가 연결되지 않았습니다!");
                 return;
             }
 
-            const int DEFAULT_BOARD_ID = 1;
-            const int DEFAULT_HNS_ID = 1;
-            const string DEFAULT_SENSOR_NAME = "독성도";
+            if (SensorMonitorViewModel.Instance == null || currentObsId <= 0)
+            {
+                LogWarning("SensorMonitorViewModel 또는 ObsId가 유효하지 않습니다!");
+                return;
+            }
 
-            LogInfo($"기본 차트 로드: {DEFAULT_SENSOR_NAME} (obsId={obsId})");
+            var toxinSensors = SensorMonitorViewModel.Instance.ToxinSensors;
+            if (toxinSensors != null && toxinSensors.Count > 0)
+            {
+                var firstToxin = toxinSensors[0];
+                LogInfo($"기본 차트 로드: {firstToxin.sensorName}");
 
-            sensorChartView.LoadSensorChart(
-        obsId,
-        DEFAULT_BOARD_ID,
-        DEFAULT_HNS_ID,
-        DEFAULT_SENSOR_NAME
-    );
+                sensorChartView.gameObject.SetActive(true);
+                sensorChartView.LoadSensorChart(
+                    currentObsId,
+                    firstToxin.boardIdx,
+                    firstToxin.hnsIdx,
+                    firstToxin.sensorName
+                );
+            }
+            else
+            {
+                LogWarning("독성 센서 데이터가 없습니다!");
+            }
         }
 
         #endregion
 
-        #region 렌더링 메서드 (Object Pooling)
+        #region 렌더링 메서드
 
         private void RenderToxinSensors()
         {
@@ -327,43 +309,59 @@ namespace Views.MonitorB
                 return;
             }
 
-            for (int i = 0; i < itemPool.Count; i++)
+            for (int i = 0; i < sensors.Count && i < itemPool.Count; i++)
             {
-                if (i < sensors.Count)
-                {
-                    itemPool[i].gameObject.SetActive(true);
-                    itemPool[i].SetData(sensors[i], currentObsId);
-                }
-                else
-                {
-                    itemPool[i].gameObject.SetActive(false);
-                }
+                itemPool[i].gameObject.SetActive(true);
+                itemPool[i].SetData(sensors[i], currentObsId);
             }
 
-            if (sensors.Count > itemPool.Count)
+            for (int i = sensors.Count; i < itemPool.Count; i++)
             {
-                LogWarning($"{gridName} 센서가 {sensors.Count}개인데, 아이템은 {itemPool.Count}개만 있습니다!");
+                itemPool[i].gameObject.SetActive(false);
             }
-        }
 
-        private void OnSensorItemClicked(SensorInfoData sensor)
-        {
-            LogInfo($"센서 선택: {sensor.sensorName} (Board: {sensor.boardIdx}, HNS: {sensor.hnsIdx})");
+            LogInfo($"{gridName} 센서 {sensors.Count}개 렌더링 완료");
         }
 
         #endregion
 
-#if UNITY_EDITOR
-        protected override void OnValidate()
+        #region 센서 클릭 핸들러
+
+        private void OnSensorItemClicked(SensorInfoData sensorData)
         {
-            base.OnValidate();
+            LogInfo($"센서 클릭: {sensorData.sensorName}");
 
-            if (txtLocationInfo == null)
-                LogWarning("txtLocationInfo가 연결되지 않았습니다.");
-
-            if (gridToxin == null || gridWaterQuality == null || gridChemicals == null)
-                LogWarning("Grid Container가 모두 연결되지 않았습니다.");
+            if (sensorChartView != null)
+            {
+                sensorChartView.gameObject.SetActive(true);
+                sensorChartView.LoadSensorChart(
+                    currentObsId,
+                    sensorData.boardIdx,
+                    sensorData.hnsIdx,
+                    sensorData.sensorName
+                );
+            }
         }
-#endif
+
+        #endregion
+
+        #region 로깅
+
+        private void LogInfo(string message)
+        {
+            Debug.Log($"[SensorView] {message}");
+        }
+
+        private void LogWarning(string message)
+        {
+            Debug.LogWarning($"[SensorView] {message}");
+        }
+
+        private void LogError(string message)
+        {
+            Debug.LogError($"[SensorView] {message}");
+        }
+
+        #endregion
     }
 }

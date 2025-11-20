@@ -5,7 +5,7 @@ using Models.MonitorA;
 using System.Collections.Generic;
 using System.Linq;
 using Onthesys;
-using Common.UI;  // ⭐ ChartLineRenderer2 사용
+using Common.UI;
 
 namespace Views.MonitorA
 {
@@ -22,17 +22,16 @@ namespace Views.MonitorA
         [SerializeField] private Image imgStatus;
 
         [Header("Trend Chart")]
-        [SerializeField] private ChartLineRenderer2 trdSensor;  // ⭐ UILineRenderer → ChartLineRenderer2
-        [SerializeField] private RectTransform chartBounds;      // ⭐ 차트 영역 (LineChart의 부모)
+        [SerializeField] private ChartLineRenderer2 trdSensor;
+        [SerializeField] private RectTransform chartBounds;
 
         [Header("Button")]
-        [SerializeField] private Button btnSelectCurrentSensor;  // ⭐ 센서 선택 버튼
+        [SerializeField] private Button btnSelectCurrentSensor;
 
         #region Private Fields
         private SensorItemData data;
         private string sensorKey;
 
-        // 상태별 색상
         private static readonly Dictionary<ToxinStatus, Color> StatusColors = new()
         {
             { ToxinStatus.Green,  HexToColor("#3EFF00") },
@@ -45,16 +44,13 @@ namespace Views.MonitorA
         #region Unity Lifecycle
         private void Awake()
         {
-            // ChartLineRenderer2가 없으면 자동으로 찾기
             if (trdSensor == null)
             {
                 trdSensor = GetComponentInChildren<ChartLineRenderer2>();
             }
 
-            // chartBounds가 없으면 자동으로 찾기 (LineChart의 부모)
             if (chartBounds == null && trdSensor != null)
             {
-                // LineChart(ChartLineRenderer2)의 부모가 chartBounds 역할
                 Transform parent = trdSensor.transform.parent;
                 if (parent != null)
                 {
@@ -62,13 +58,11 @@ namespace Views.MonitorA
                 }
             }
 
-            // Button이 없으면 자동으로 찾기
             if (btnSelectCurrentSensor == null)
             {
                 btnSelectCurrentSensor = GetComponent<Button>();
             }
 
-            // 버튼 이벤트 연결
             if (btnSelectCurrentSensor != null)
             {
                 btnSelectCurrentSensor.onClick.AddListener(OnClick);
@@ -77,7 +71,6 @@ namespace Views.MonitorA
 
         private void Start()
         {
-            // ⭐ ChartLineRenderer2 초기화
             if (trdSensor != null && chartBounds != null)
             {
                 trdSensor.Initialize(chartBounds);
@@ -105,7 +98,7 @@ namespace Views.MonitorA
             Debug.Log($"  - Unit: {data.Unit}");
 
             UpdateUI();
-            UpdateTrendLine();  // ⭐ 트렌드 차트 업데이트
+            UpdateTrendLine();
         }
 
         /// <summary>
@@ -123,6 +116,7 @@ namespace Views.MonitorA
 
         /// <summary>
         /// 트렌드 라인 업데이트 - 센서 측정값들을 차트로 표시
+        /// ✅ 수정: txtValue는 UpdateUI()에서만 업데이트
         /// </summary>
         public void UpdateTrendLine()
         {
@@ -146,10 +140,8 @@ namespace Views.MonitorA
 
             List<float> normalizedValues = new();
 
-            // 정규화를 위한 최대값 계산 (+1은 차트가 맨 위에 붙지 않도록)
             float max = data.Values.Max() + 1;
 
-            // 모든 값을 0~1 범위로 정규화
             foreach (var val in data.Values)
             {
                 normalizedValues.Add(val / max);
@@ -157,14 +149,8 @@ namespace Views.MonitorA
 
             Debug.Log($"[ObsMonitoringItem] 트렌드 차트 업데이트: {data.HnsName}, Values={data.Values.Count}개, Max={max}");
 
-            // ⭐ ChartLineRenderer2 업데이트 (UpdateControlPoints → UpdateChart)
+            // ✅ 차트만 업데이트 (txtValue는 UpdateUI()에서 관리)
             trdSensor.UpdateChart(normalizedValues);
-
-            // 현재값 텍스트 업데이트
-            if (txtValue != null)
-            {
-                txtValue.text = data.GetLastValue().ToString("F2");
-            }
         }
 
         /// <summary>
@@ -176,6 +162,7 @@ namespace Views.MonitorA
         #region Private Methods
         /// <summary>
         /// UI 전체 업데이트
+        /// ✅ 0일 때는 0.00으로 표시
         /// </summary>
         private void UpdateUI()
         {
@@ -185,45 +172,31 @@ namespace Views.MonitorA
                 return;
             }
 
-            // 센서명
             if (txtSensorName != null)
             {
                 txtSensorName.text = data.HnsName;
             }
-            else
-            {
-                Debug.LogWarning($"[ObsMonitoringItem] txtSensorName이 null! ({data.HnsName})");
-            }
 
-            // 측정값
+            // ✅ CurrentValue 표시
             if (txtValue != null)
             {
-                if (data.Status == ToxinStatus.Purple)
+                // Purple이고 VAL이 0이 아닌 경우 → 설비이상
+                if (data.Status == ToxinStatus.Purple && data.CurrentValue != 0)
                 {
                     txtValue.text = "설비이상";
                 }
+                // 정상 측정값 (0 포함)
                 else
                 {
                     txtValue.text = FormatValue(data.CurrentValue);
                 }
-                Debug.Log($"[ObsMonitoringItem] txtValue 설정: {txtValue.text}");
-            }
-            else
-            {
-                Debug.LogWarning($"[ObsMonitoringItem] txtValue가 null! ({data.HnsName})");
             }
 
-            // 단위
             if (txtUnit != null)
             {
                 txtUnit.text = data.Unit;
             }
-            else
-            {
-                Debug.LogWarning($"[ObsMonitoringItem] txtUnit이 null! ({data.HnsName})");
-            }
 
-            // 상태 색상
             UpdateStatusColor();
         }
 
@@ -239,20 +212,12 @@ namespace Views.MonitorA
             }
 
             Color statusColor = StatusColors[data.Status];
-            Debug.Log($"[ObsMonitoringItem] 상태 색상 설정: {data.HnsName} = {data.Status} ({statusColor})");
 
-            // 상태 표시 이미지
             if (imgStatus != null)
             {
                 imgStatus.color = statusColor;
-                Debug.Log($"[ObsMonitoringItem] imgStatus 색상 설정됨");
-            }
-            else
-            {
-                Debug.LogWarning($"[ObsMonitoringItem] imgStatus가 null! ({data.HnsName})");
             }
 
-            // 텍스트 색상
             if (txtValue != null)
             {
                 txtValue.color = statusColor;
@@ -264,14 +229,7 @@ namespace Views.MonitorA
         /// </summary>
         private string FormatValue(float value)
         {
-            if (value >= 1000f)
-                return value.ToString("N0");
-            else if (value >= 100f)
-                return value.ToString("F1");
-            else if (value >= 10f)
-                return value.ToString("F2");
-            else
-                return value.ToString("F3");
+            return value.ToString("F2");
         }
 
         /// <summary>
@@ -287,18 +245,12 @@ namespace Views.MonitorA
 
         /// <summary>
         /// 센서 선택 버튼 클릭
-        /// TODO: 센서 상세 팝업 또는 차트 표시 기능 구현
         /// </summary>
         private void OnClick()
         {
             if (data == null) return;
 
             Debug.Log($"[ObsMonitoringItem] 센서 선택: {data.HnsName} (Board={data.BoardId}, Hns={data.HnsId})");
-
-            // TODO: 센서 선택 이벤트 발생
-            // UiManager.Instance.Invoke(UiEventType.SelectCurrentSensor, (data.BoardId, data.HnsId));
-            // 또는
-            // ViewModel을 통해 이벤트 발생
         }
         #endregion
 
@@ -320,7 +272,6 @@ namespace Views.MonitorA
             if (trdSensor == null)
                 trdSensor = GetComponentInChildren<ChartLineRenderer2>();
 
-            // chartBounds 자동 찾기
             if (chartBounds == null && trdSensor != null)
             {
                 Transform parent = trdSensor.transform.parent;
