@@ -6,7 +6,6 @@ using TMPro;
 using Assets.Scripts_refactoring.Models.MonitorA;
 using HNS.MonitorA.ViewModels;
 using Assets.Scripts_refactoring.Views.MonitorA;
-using AreaDataModel = HNS.MonitorA.Models.AreaData;
 
 namespace HNS.MonitorA.Views
 {
@@ -138,9 +137,7 @@ namespace HNS.MonitorA.Views
         {
             if (AreaListTypeViewModel.Instance != null)
             {
-                AreaListTypeViewModel.Instance.RefreshAreasByType(
-            (AreaDataModel.AreaType)areaType  
-        );
+                AreaListTypeViewModel.Instance.RefreshAreasByType(areaType);
                 LogInfo($"데이터 요청: {areaType}");
             }
         }

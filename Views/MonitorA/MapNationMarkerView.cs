@@ -6,8 +6,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using AreaDataModel = HNS.MonitorA.Models.AreaData;  
-using ObsDataModel = HNS.MonitorA.Models.ObsData;    
 
 namespace Views.MonitorA
 {
@@ -103,9 +101,9 @@ namespace Views.MonitorA
             // 아이콘
             if (imgIcon != null)
             {
-                if (data.AreaType == AreaDataModel.AreaType.Nuclear && iconNuclear != null)
+                if (data.AreaType == AreaData.AreaType.Nuclear && iconNuclear != null)
                     imgIcon.sprite = iconNuclear;
-                else if (data.AreaType == AreaDataModel.AreaType.Ocean && iconOcean != null)
+                else if (data.AreaType == AreaData.AreaType.Ocean && iconOcean != null)
                     imgIcon.sprite = iconOcean;
             }
         }

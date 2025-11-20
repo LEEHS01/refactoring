@@ -5,8 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Services;
 using Models.MonitorB;
-using HNS.MonitorA.Models;
-using AreaDataModel = HNS.MonitorA.Models.AreaData;
+using HNS.MonitorA.Models; 
 
 namespace HNS.MonitorA.Repositories
 {
@@ -148,19 +147,19 @@ namespace HNS.MonitorA.Repositories
             return 0; // Green
         }
 
-        private AreaDataModel.AreaType GetAreaType(string areaName)
+        private AreaData.AreaType GetAreaType(string areaName)
         {
             if (string.IsNullOrEmpty(areaName))
-                return AreaDataModel.AreaType.Ocean;
+                return AreaData.AreaType.Ocean;
 
             if (areaName.Contains("원자력") ||
                 areaName.Contains("화력") ||
                 areaName.Contains("발전소"))
             {
-                return AreaDataModel.AreaType.Nuclear;
+                return AreaData.AreaType.Nuclear;
             }
 
-            return AreaDataModel.AreaType.Ocean;
+            return AreaData.AreaType.Ocean;
         }
     }
 }

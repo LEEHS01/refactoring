@@ -74,7 +74,6 @@ public class AppInitializer : MonoBehaviour
         CreateViewModel<Area3DViewModel>("Area3DViewModel");
         CreateViewModel<ObsMonitoringViewModel>("ObsMonitoringViewModel");
         CreateViewModel<PopupAlarmViewModel>("PopupAlarmViewModel");
-        CreateViewModel<PopupSettingViewModel>("PopupSettingViewModel");
 
         // 모든 ViewModel이 준비될 때까지 대기
         while (AlarmLogViewModel.Instance == null ||
@@ -93,8 +92,7 @@ public class AppInitializer : MonoBehaviour
                AreaAlarmChartViewModel.Instance == null ||
                Area3DViewModel.Instance == null ||
                ObsMonitoringViewModel.Instance == null ||
-               PopupAlarmViewModel.Instance == null ||
-               PopupSettingViewModel.Instance == null)
+               PopupAlarmViewModel.Instance == null) 
         {
             yield return null;
         }

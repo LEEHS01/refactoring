@@ -41,16 +41,7 @@ namespace HNS.MonitorA.Views
         private void OnClick()
         {
             Debug.Log("⚙환경설정 버튼 클릭");
-            PopupSettingView popupSetting = FindFirstObjectByType<PopupSettingView>();
-            if (popupSetting != null)
-            {
-                popupSetting.OpenPopup(0);
-                Debug.Log("[TitleSettingButtonView] PopupSettingView 열림");
-            }
-            else
-            {
-                Debug.LogError("[TitleSettingButtonView] PopupSettingView를 찾을 수 없습니다!");
-            }
+            // TODO: UiManager.Instance.Invoke(UiEventType.PopupSetting, 0);
         }
     }
 }

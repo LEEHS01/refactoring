@@ -1,5 +1,4 @@
-﻿using HNS.MonitorA.Views;
-using HNS.Services;
+﻿using HNS.Services;
 using Models.MonitorA;
 using System.Collections.Generic;
 using System.Linq;
@@ -330,16 +329,6 @@ namespace Views.MonitorA
         private void OnSettingButtonClick()
         {
             Debug.Log("[ObsMonitoringView] 설정 버튼 클릭");
-            PopupSettingView popupSetting = FindFirstObjectByType<PopupSettingView>();
-            if (popupSetting != null)
-            {
-                popupSetting.OpenPopup(currentObsId);
-                Debug.Log($"[ObsMonitoringView] PopupSettingView 열림 - ObsId:{currentObsId}");
-            }
-            else
-            {
-                Debug.LogError("[ObsMonitoringView] PopupSettingView를 찾을 수 없습니다!");
-            }
         }
         #endregion
 
