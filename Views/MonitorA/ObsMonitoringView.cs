@@ -36,7 +36,7 @@ namespace Views.MonitorA
         [SerializeField] private SchedulerService schedulerService;  // ⭐ 스케줄러 연결
 
         [Header("Animation")]
-        [SerializeField] private Vector3 visiblePosition = new Vector3(-575f, 0f, 0f);  // 표시 위치 (원본: -575)
+        [SerializeField] private Vector3 visiblePosition = new Vector3(-575f, 0f, 0f);  // 표시 위치 (FHD 기준: -575)
         [SerializeField] private float animationDuration = 1f;
 
         #region Private Fields
@@ -47,6 +47,7 @@ namespace Views.MonitorA
         private Dictionary<string, Tweener> blinkTweeners = new();
         private int currentObsId = -1;
         private Vector3 defaultPos;  // 기본 위치
+        private Vector3 scaledVisiblePosition;  // ⭐ 해상도에 맞게 스케일된 위치
         #endregion
 
         #region Unity Lifecycle
@@ -54,6 +55,9 @@ namespace Views.MonitorA
         {
             // 기본 위치 저장
             defaultPos = transform.position;
+
+            // ⭐⭐⭐ 해상도에 따른 위치 스케일링
+            CalculateScaledPosition();
 
             // ⭐ 원본 방식: Start에서 기존 아이템들을 미리 찾아서 캐싱!
             Transform scrollContent = transform.Find("Scroll").Find("Content");
@@ -343,29 +347,52 @@ namespace Views.MonitorA
         }
         #endregion
 
+        #region Private Methods - Resolution Scaling
+        /// <summary>
+        /// 해상도에 따른 위치 스케일링 (FHD+ 대응)
+        /// </summary>
+        private void CalculateScaledPosition()
+        {
+            // FHD 기준 해상도
+            Vector2 referenceFHD = new Vector2(1920f, 1080f);
+
+            // 실제 화면 해상도
+            Vector2 actualScreenSize = new Vector2(Screen.width, Screen.height);
+
+            // 해상도 비율 계산
+            float scaleX = actualScreenSize.x / referenceFHD.x;
+
+            // visiblePosition에 비율 적용
+            scaledVisiblePosition = new Vector3(
+                visiblePosition.x * scaleX,
+                visiblePosition.y,
+                visiblePosition.z
+            );
+
+            Debug.Log($"[ObsMonitoringView] 해상도: {actualScreenSize}, 스케일: {scaleX:F2}, 원본위치: {visiblePosition}, 스케일위치: {scaledVisiblePosition}");
+        }
+        #endregion
+
         #region Private Methods - Animations
         /// <summary>
         /// 표시 애니메이션 (Canvas 밖 → 안으로 슬라이드)
-        /// 원본: defaultPos - new Vector3(575, 0, 0)
         /// </summary>
         private void PlayShowAnimation()
         {
-            Vector3 targetPos = defaultPos + visiblePosition;  // ⭐ -575 이동
+            // ⭐⭐⭐ 스케일된 위치 사용!
+            Vector3 targetPos = defaultPos + scaledVisiblePosition;
 
             transform.DOKill();
-            // ⭐ 원본처럼 position (월드 좌표) 사용
             transform.DOMove(targetPos, animationDuration)
                 .SetEase(Ease.OutQuad);
         }
 
         /// <summary>
         /// 숨김 애니메이션 (Canvas 안 → 밖으로 슬라이드)
-        /// 원본: defaultPos (원위치)
         /// </summary>
         private void PlayHideAnimation()
         {
             transform.DOKill();
-            // ⭐ 원본처럼 position (월드 좌표) 사용
             transform.DOMove(defaultPos, animationDuration)
                 .SetEase(Ease.OutQuad);
         }
