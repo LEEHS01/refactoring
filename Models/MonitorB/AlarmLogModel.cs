@@ -17,6 +17,9 @@ namespace Models
         public string OBSNM { get; set; }
         public string HNSNM { get; set; }
         public float? CURRVAL { get; set; }
+        public float? ALAHIVAL { get; set; } 
+        public float? ALAHIHIVAL { get; set; }   
+
 
         public AlarmLogModel()
         {
@@ -32,6 +35,8 @@ namespace Models
             OBSNM = "";
             HNSNM = "";
             CURRVAL = null;
+            ALAHIVAL = null;      
+            ALAHIHIVAL = null;  
         }
     }
 }

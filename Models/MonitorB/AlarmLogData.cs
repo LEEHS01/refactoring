@@ -17,6 +17,8 @@ namespace Models
         public string obsName;
         public string sensorName;
         public float? alarmValue;
+        public float? warningThreshold;   // 경계 임계값 (ALAHIVAL)
+        public float? criticalThreshold;  // 경보 임계값 (ALAHIHIVAL)
 
         public AlarmLogData()
         {
@@ -32,6 +34,8 @@ namespace Models
             obsName = "";
             sensorName = "";
             alarmValue = null;
+            warningThreshold = null;  
+            criticalThreshold = null;
         }
 
         public static AlarmLogData FromModel(AlarmLogModel model)
@@ -49,8 +53,11 @@ namespace Models
                 areaName = model.AREANM ?? "",
                 obsName = model.OBSNM ?? "",
                 sensorName = model.HNSNM ?? "",
-                alarmValue = model.CURRVAL
+                alarmValue = model.CURRVAL,
+                warningThreshold = model.ALAHIVAL,      // ⭐ 추가
+                criticalThreshold = model.ALAHIHIVAL    // ⭐ 추가
             };
         }
+
     }
 }
