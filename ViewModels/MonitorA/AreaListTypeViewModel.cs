@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using AreaDataModel = HNS.MonitorA.Models.AreaData;
 
 namespace HNS.MonitorA.ViewModels
 {
@@ -141,11 +142,11 @@ namespace HNS.MonitorA.ViewModels
         /// <summary>
         /// 특정 타입만 새로고침 (캐시된 데이터 재전송)
         /// </summary>
-        public void RefreshAreasByType(AreaData.AreaType areaType)
+        public void RefreshAreasByType(AreaDataModel.AreaType areaType)
         {
             LogInfo($"{areaType} 타입 새로고침");
 
-            if (areaType == AreaData.AreaType.Ocean)
+            if (areaType == AreaDataModel.AreaType.Ocean)
             {
                 OnOceanAreasChanged?.Invoke(oceanAreas);
             }
@@ -211,12 +212,12 @@ namespace HNS.MonitorA.ViewModels
 
             // 해양시설/발전소 타입별 분류
             oceanAreas = result
-                .Where(a => a.AreaType == AreaData.AreaType.Ocean)
+                .Where(a => a.AreaType == AreaDataModel.AreaType.Ocean)
                 .Select(MapToModel)
                 .ToList();
 
             nuclearAreas = result
-                .Where(a => a.AreaType == AreaData.AreaType.Nuclear)
+                .Where(a => a.AreaType == AreaDataModel.AreaType.Nuclear)
                 .Select(MapToModel)
                 .ToList();
 
