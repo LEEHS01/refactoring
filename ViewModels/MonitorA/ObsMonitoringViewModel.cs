@@ -538,6 +538,8 @@ namespace ViewModels.MonitorA
             var chemicalList = allSensors.Where(s => s.BoardId == 2 && s.HnsId <= 19).ToList();
             var qualityList = allSensors.Where(s => s.BoardId == 3 && s.HnsId <= 7).ToList();
 
+            qualityList.Reverse();
+
             Debug.Log($"[ObsMonitoringViewModel] 데이터 분류: Toxin={toxinList.Count}, Chemical={chemicalList.Count}, Quality={qualityList.Count}");
 
             OnToxinLoaded?.Invoke(toxinList);

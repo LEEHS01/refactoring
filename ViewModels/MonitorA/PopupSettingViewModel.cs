@@ -52,6 +52,13 @@ namespace HNS.Common.ViewModels
         public event Action<string> OnUpdateSuccess;
         public event Action<string> OnError;
 
+        // ⭐⭐⭐ 센서 표시/숨김 이벤트 추가
+        /// <summary>
+        /// 센서 표시/숨김 변경 이벤트
+        /// (obsIdx, boardIdx, hnsIdx, isVisible)
+        /// </summary>
+        public event Action<int, int, int, bool> OnSensorVisibilityChanged;
+
         #endregion
 
         #region Private Fields
@@ -71,41 +78,31 @@ namespace HNS.Common.ViewModels
             _repository = new SettingsRepository();
             LoadSystemSettings();
 
-
             LogInfo("ViewModel 초기화 완료 - 지역 목록 로드 시작");
         }
-
 
         #endregion
 
         #region Public Methods - 팝업 열기/닫기
 
-        /// <summary>
-        /// 환경설정 팝업 열기
-        /// </summary>
-        /// <param name="obsId">관측소 ID (0이면 전체 설정)</param>
         public void OpenSettings(int obsId = 0)
         {
             _currentObsId = obsId;
 
             if (obsId > 0)
             {
-                // ⭐ 관측소 화면에서 열기: 해당 관측소 정보만 로드
                 LogInfo($"관측소 설정 열기: ObsId={obsId}");
                 SwitchTab(SettingTabType.Observatory);
                 StartCoroutine(LoadObservatorySettingsCoroutine(obsId));
             }
             else
             {
-                // ⭐ 메인 화면에서 열기: 인천, 첫 관측소를 기본값으로
                 LogInfo("전체 설정 열기 - 기본값: 인천, 지역1");
                 SwitchTab(SettingTabType.Observatory);
                 StartCoroutine(LoadDefaultSettingsCoroutine());
             }
         }
-        /// <summary>
-        /// 기본 설정 로드 (인천, 첫 관측소)
-        /// </summary>
+
         private IEnumerator LoadDefaultSettingsCoroutine()
         {
             LogInfo("지역 목록 로드 시작");
@@ -125,14 +122,11 @@ namespace HNS.Common.ViewModels
                 OnAreasLoaded?.Invoke(areas);
                 LogInfo($"지역 목록 로드 완료: {areas.Count}개");
 
-                // ⭐ 자동으로 인천(AreaId=1) 선택
                 int incheonAreaId = 1;
                 StartCoroutine(LoadObservatoriesByAreaCoroutine(incheonAreaId));
             }
         }
-        /// <summary>
-        /// 탭 전환
-        /// </summary>
+
         public void SwitchTab(SettingTabType tab)
         {
             _currentTab = tab;
@@ -144,18 +138,12 @@ namespace HNS.Common.ViewModels
 
         #region Public Methods - 지역/관측소 선택
 
-        /// <summary>
-        /// 지역 선택
-        /// </summary>
         public void SelectArea(int areaId)
         {
             LogInfo($"지역 선택: AreaId={areaId}");
             StartCoroutine(LoadObservatoriesByAreaCoroutine(areaId));
         }
 
-        /// <summary>
-        /// 관측소 선택
-        /// </summary>
         public void SelectObservatory(int obsId)
         {
             _currentObsId = obsId;
@@ -167,9 +155,6 @@ namespace HNS.Common.ViewModels
 
         #region Public Methods - 설정 업데이트
 
-        /// <summary>
-        /// 독성도 경고값 변경
-        /// </summary>
         public void UpdateToxinWarning(float warningValue)
         {
             if (_currentObsId <= 0) return;
@@ -178,9 +163,6 @@ namespace HNS.Common.ViewModels
             StartCoroutine(UpdateToxinWarningCoroutine(warningValue));
         }
 
-        /// <summary>
-        /// 보드 고정 토글
-        /// </summary>
         public void ToggleBoardFixing(int boardId, bool isFixed)
         {
             if (_currentObsId <= 0) return;
@@ -190,19 +172,20 @@ namespace HNS.Common.ViewModels
         }
 
         /// <summary>
-        /// 센서 사용 토글
+        /// ⭐⭐⭐ 센서 사용 토글 - 이벤트 발생 추가
         /// </summary>
         public void ToggleSensorUsing(int boardId, int sensorId, bool isUsing)
         {
-            if (_currentObsId <= 0) return;
+            if (_currentObsId <= 0)
+            {
+                LogError("관측소가 선택되지 않았습니다!");
+                return;
+            }
 
             LogInfo($"센서 사용 변경: BoardId={boardId}, SensorId={sensorId}, Using={isUsing}");
             StartCoroutine(UpdateSensorUsingCoroutine(boardId, sensorId, isUsing));
         }
 
-        /// <summary>
-        /// CCTV URL 변경
-        /// </summary>
         public void UpdateCctvUrl(CctvType cctvType, string url)
         {
             if (_currentObsId <= 0) return;
@@ -211,9 +194,6 @@ namespace HNS.Common.ViewModels
             StartCoroutine(UpdateCctvUrlCoroutine(cctvType, url));
         }
 
-        /// <summary>
-        /// 알람 임계값 변경
-        /// </summary>
         public void ChangeAlarmThreshold(ToxinStatus threshold)
         {
             _systemSettings.AlarmThreshold = threshold;
@@ -223,9 +203,6 @@ namespace HNS.Common.ViewModels
             LogInfo($"알람 임계값 변경: {threshold}");
         }
 
-        /// <summary>
-        /// DB URL 변경
-        /// </summary>
         public void ChangeDatabaseUrl(string url)
         {
             _systemSettings.DatabaseUrl = url;
@@ -234,9 +211,6 @@ namespace HNS.Common.ViewModels
             LogInfo($"DB URL 변경: {url}");
         }
 
-        /// <summary>
-        /// 센서 임계값 업데이트 (경계값/경보값)
-        /// </summary>
         public IEnumerator UpdateSensorThreshold(
             int obsId, int boardId, int sensorId,
             string columnName, float value)
@@ -311,7 +285,6 @@ namespace HNS.Common.ViewModels
         {
             LogInfo($"관측소 설정 로드 시작: ObsId={obsId}");
 
-            // 1. 기본 설정 로드 (GET_SETTING)
             bool isComplete = false;
             ObservatorySettingData settings = null;
 
@@ -329,11 +302,10 @@ namespace HNS.Common.ViewModels
                 yield break;
             }
 
-            // ⭐ 2. CCTV URL 로드 (GET_OBS) - ObservatoryModel 사용
             isComplete = false;
             yield return _repository.GetObservatoryWithCctv(
                 obsId,
-                (obsModel) =>  // ⭐ Models.MonitorB.ObservatoryModel
+                (obsModel) =>
                 {
                     settings.CctvEquipmentUrl = obsModel.IN_CCTVURL ?? "";
                     settings.CctvOutdoorUrl = obsModel.OUT_CCTVURL ?? "";
@@ -355,19 +327,17 @@ namespace HNS.Common.ViewModels
 
             while (!isComplete) yield return null;
 
-            // 3. 최종 이벤트 발생
             _cachedObsSettings = settings;
             OnObservatorySettingsLoaded?.Invoke(settings);
             LogInfo("관측소 설정 로드 완료");
         }
-    
 
         private void LoadSystemSettings()
         {
             _systemSettings = new SystemSettingData
             {
                 AlarmThreshold = (ToxinStatus)PlayerPrefs.GetInt("AlarmThreshold", 1),
-                DatabaseUrl = PlayerPrefs.GetString("DatabaseUrl", "http://192.168.1.20:2000/")  // ⭐ 수정!
+                DatabaseUrl = PlayerPrefs.GetString("DatabaseUrl", "http://192.168.1.20:2000/")
             };
 
             OnSystemSettingsLoaded?.Invoke(_systemSettings);
@@ -419,6 +389,9 @@ namespace HNS.Common.ViewModels
             while (!isComplete) yield return null;
         }
 
+        /// <summary>
+        /// ⭐⭐⭐ 센서 사용 업데이트 - 이벤트 발생
+        /// </summary>
         private IEnumerator UpdateSensorUsingCoroutine(int boardId, int sensorId, bool isUsing)
         {
             bool isComplete = false;
@@ -429,7 +402,12 @@ namespace HNS.Common.ViewModels
                 sensorId,
                 isUsing,
                 () => {
+                    // ⭐ DB 업데이트 성공 후 이벤트 발생
+                    OnSensorVisibilityChanged?.Invoke(_currentObsId, boardId, sensorId, isUsing);
+
                     OnUpdateSuccess?.Invoke("센서 사용 여부가 업데이트되었습니다.");
+                    LogInfo($"✅ 센서 표시/숨김 이벤트 발생: Obs={_currentObsId}, Board={boardId}, Sensor={sensorId}, Visible={isUsing}");
+
                     isComplete = true;
                 },
                 (error) => {
@@ -439,6 +417,9 @@ namespace HNS.Common.ViewModels
             );
 
             while (!isComplete) yield return null;
+
+            // ⭐ 설정 다시 로드 (UI 동기화)
+            yield return LoadObservatorySettingsCoroutine(_currentObsId);
         }
 
         private IEnumerator UpdateCctvUrlCoroutine(CctvType cctvType, string url)
@@ -485,15 +466,17 @@ namespace HNS.Common.ViewModels
             Debug.LogWarning($"[PopupSettingViewModel] {message}");
         }
 
+        private void LogError(string message)
+        {
+            Debug.LogError($"[PopupSettingViewModel] {message}");
+        }
+
         #endregion
     }
 
-    /// <summary>
-    /// 설정 탭 타입
-    /// </summary>
     public enum SettingTabType
     {
-        Observatory,  // 관측소 설정
-        System        // 시스템 설정
+        Observatory,
+        System
     }
 }

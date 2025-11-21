@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using ViewModels.MonitorB;
 using Views.MonitorA;
+using Views.MonitorB;  // ⭐ 추가
 
 namespace HNS.MonitorA.ViewModels
 {
@@ -86,7 +87,6 @@ namespace HNS.MonitorA.ViewModels
                 return;
             }
 
-            // ⭐⭐⭐ areaName으로 areaId 찾기!
             int areaId = GetAreaIdByName(alarmData.areaName);
 
             if (areaId < 1 || areaId > 10)
@@ -97,7 +97,6 @@ namespace HNS.MonitorA.ViewModels
 
             Debug.Log($"[Area3DViewModel] ObsId={obsId} → AreaName={alarmData.areaName} → AreaId={areaId}");
 
-            // 화면 전환 코루틴 시작
             StartCoroutine(TransitionToObservatoryCoroutine(areaId, obsId, alarmData.areaName, alarmData.obsName));
         }
 
@@ -107,6 +106,9 @@ namespace HNS.MonitorA.ViewModels
             LoadObservatory(obsId, "", "");
         }
 
+        /// <summary>
+        /// ⭐⭐⭐ 관측소 로드 + 독성도 차트 자동 표시
+        /// </summary>
         public void LoadObservatory(int obsId, string areaName, string obsName)
         {
             if (obsId <= 0)
@@ -124,6 +126,9 @@ namespace HNS.MonitorA.ViewModels
 
             OnObservatoryLoaded?.Invoke(obsId);
             OnObservatoryLoadedWithNames?.Invoke(obsId, areaName, obsName);
+
+            // ⭐⭐⭐ 독성도 차트 자동 표시
+            StartCoroutine(LoadDefaultChartCoroutine(obsId));
         }
 
         public void CloseObservatory()
@@ -139,39 +144,76 @@ namespace HNS.MonitorA.ViewModels
         }
         #endregion
 
-        #region Private Methods - 화면 전환
+        #region Private Methods - 차트 자동 로드
 
         /// <summary>
-        /// 지역명으로 지역 ID 찾기
+        /// ⭐⭐⭐ 독성도 차트 자동 로드
         /// </summary>
+        private IEnumerator LoadDefaultChartCoroutine(int obsId)
+        {
+            Debug.Log($"[Area3DViewModel] 독성도 차트 자동 로드 시작: ObsId={obsId}");
+
+            // SensorMonitorViewModel이 데이터 로드할 시간 대기
+            yield return new WaitForSeconds(0.5f);
+
+            // SensorChartView 찾기
+            var chartView = FindObjectOfType<SensorChartView>(true);  // 비활성 오브젝트도 찾기
+            if (chartView == null)
+            {
+                Debug.LogError("[Area3DViewModel] SensorChartView를 찾을 수 없습니다!");
+                yield break;
+            }
+
+            // 독성도 센서 정보 가져오기
+            var toxinSensors = SensorMonitorViewModel.Instance?.ToxinSensors;
+            if (toxinSensors == null || toxinSensors.Count == 0)
+            {
+                Debug.LogWarning("[Area3DViewModel] 독성도 센서 데이터가 없습니다!");
+                yield break;
+            }
+
+            var firstToxin = toxinSensors[0];  // 첫 번째 독성도 센서
+
+            // 차트 활성화 및 로드
+            chartView.gameObject.SetActive(true);
+            chartView.LoadSensorChart(
+                obsId,
+                firstToxin.boardIdx,     // 1 (독성도)
+                firstToxin.hnsIdx,       // 1
+                firstToxin.sensorName    // "독성도"
+            );
+
+            Debug.Log($"[Area3DViewModel] ✅ 독성도 차트 자동 로드 완료: {firstToxin.sensorName}");
+        }
+
+        #endregion
+
+        #region Private Methods - 화면 전환
+
         private int GetAreaIdByName(string areaName)
         {
-            // 띄어쓰기 제거 후 비교
             string normalizedName = areaName.Replace(" ", "").Trim();
 
             var areaMapping = new Dictionary<string, int>
-    {
-        // ⭐ TB_AREA의 실제 AREANM 값 (이미지 1, 7 참조)
-        { "인천", 1 },
-        { "평택/대산", 2 },
-        { "여수/광양", 3 },
-        { "부산", 4 },
-        { "울산", 5 },
-        { "보령화력", 6 },
-        { "영광원자력", 7 },
-        { "사천화력", 8 },
-        { "고리원자력", 9 },
-        { "동해화력", 10 },
-        
-        // ⭐ 띄어쓰기 없는 버전도 지원
-        { "평택대산", 2 },
-        { "여수광양", 3 },
-        { "보령", 6 },
-        { "영광", 7 },
-        { "사천", 8 },
-        { "고리", 9 },
-        { "동해", 10 }
-    };
+            {
+                { "인천", 1 },
+                { "평택/대산", 2 },
+                { "여수/광양", 3 },
+                { "부산", 4 },
+                { "울산", 5 },
+                { "보령화력", 6 },
+                { "영광원자력", 7 },
+                { "사천화력", 8 },
+                { "고리원자력", 9 },
+                { "동해화력", 10 },
+                { "평택대산", 2 },
+                { "여수광양", 3 },
+                { "보령", 6 },
+                { "영광", 7 },
+                { "사천", 8 },
+                { "고리", 9 },
+                { "동해", 10 }
+            };
 
             if (areaMapping.TryGetValue(normalizedName, out int areaId))
             {
@@ -183,14 +225,10 @@ namespace HNS.MonitorA.ViewModels
             return 0;
         }
 
-        /// <summary>
-        /// Monitor B 알람 선택 시 Monitor A 화면 자동 전환
-        /// </summary>
         private IEnumerator TransitionToObservatoryCoroutine(int areaId, int obsId, string areaName, string obsName)
         {
             Debug.Log($"[Area3DViewModel] 화면 전환 시작: AreaId={areaId}, ObsId={obsId}");
 
-            // Step 0: 기존 3D 화면 닫기
             if (_isObservatoryActive)
             {
                 Debug.Log("[Area3DViewModel] Step 0: 기존 3D 화면 닫기");
@@ -198,7 +236,6 @@ namespace HNS.MonitorA.ViewModels
                 yield return new WaitForSeconds(0.2f);
             }
 
-            // Step 1: MapNationView 찾기
             var mapNationView = FindObjectOfType<MapNationView>();
             if (mapNationView == null)
             {
@@ -206,30 +243,25 @@ namespace HNS.MonitorA.ViewModels
                 yield break;
             }
 
-            // Step 2: 전국 지도 축소
             Debug.Log("[Area3DViewModel] Step 1: 전국 지도 축소");
             mapNationView.SwitchToMinimapMode();
             yield return new WaitForSeconds(0.1f);
 
-            // Step 3: MapAreaViewModel 확인
             if (MapAreaViewModel.Instance == null)
             {
                 Debug.LogError("[Area3DViewModel] ❌ MapAreaViewModel.Instance가 null!");
                 yield break;
             }
 
-            // Step 4: 지역 데이터 로드
             Debug.Log($"[Area3DViewModel] Step 2: 지역 데이터 로드 (AreaId={areaId})");
             MapAreaViewModel.Instance.LoadAreaData(areaId);
             yield return new WaitForSeconds(0.5f);
             Debug.Log("[Area3DViewModel] 지역 데이터 로드 대기 완료");
 
-            // ⭐⭐⭐ Step 4.5: MapAreaView 숨김 처리 추가!
             var mapAreaView = FindFirstObjectByType<HNS.MonitorA.Views.MapAreaView>();
             if (mapAreaView != null)
             {
                 Debug.Log("[Area3DViewModel] Step 2.5: 지역 지도 숨김");
-                // MapAreaView의 CanvasGroup을 숨김
                 var canvasGroup = mapAreaView.GetComponent<CanvasGroup>();
                 if (canvasGroup != null)
                 {
@@ -244,7 +276,6 @@ namespace HNS.MonitorA.ViewModels
                 Debug.LogWarning("[Area3DViewModel] MapAreaView를 찾을 수 없습니다!");
             }
 
-            // Step 5: 3D 관측소 화면 전환
             Debug.Log($"[Area3DViewModel] Step 3: 3D 관측소 화면 전환 (ObsId={obsId})");
             LoadObservatory(obsId, areaName, obsName);
             yield return new WaitForSeconds(0.1f);

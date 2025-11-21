@@ -1,17 +1,19 @@
-﻿using System.Collections.Generic;
+﻿using Assets.Scripts_refactoring.Models.MonitorA;
+using Assets.Scripts_refactoring.Views.MonitorA;
+using HNS.MonitorA.ViewModels;
+using System.Collections.Generic;
 using System.Linq;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
-using Assets.Scripts_refactoring.Models.MonitorA;
-using HNS.MonitorA.ViewModels;
-using Assets.Scripts_refactoring.Views.MonitorA;
+using Views.MonitorA;
 using RefactoredAreaData = HNS.Common.Models.AreaData;
 
 namespace HNS.MonitorA.Views
 {
     /// <summary>
     /// 지역별 관측소 현황 View
+    /// ⭐ 아이템 클릭 시 지역 지도 이동 추가
     /// </summary>
     public class AreaListTypeView : MonoBehaviour
     {
@@ -30,26 +32,21 @@ namespace HNS.MonitorA.Views
 
         private List<AreaListTypeItemView> itemViews = new();
         private Vector3 defaultPos;
-        private bool isInitialized = false; // ⭐ 추가
+        private bool isInitialized = false;
 
         #endregion
 
         #region Unity Lifecycle
 
-        private void Awake() // ⭐ Start → Awake 변경
+        private void Awake()
         {
-            // 컴포넌트 초기화
             InitializeComponents();
-
-            // ViewModel 이벤트 구독
             SubscribeToViewModel();
-
             isInitialized = true;
         }
 
-        private void OnEnable() // ⭐ 추가: 활성화될 때마다
+        private void OnEnable()
         {
-            // 초기화 완료 후에만 데이터 요청
             if (isInitialized)
             {
                 RequestInitialData();
@@ -59,6 +56,7 @@ namespace HNS.MonitorA.Views
         private void OnDestroy()
         {
             UnsubscribeFromViewModel();
+            UnsubscribeFromItems();  // ⭐ 추가
         }
 
         #endregion
@@ -69,7 +67,6 @@ namespace HNS.MonitorA.Views
         {
             defaultPos = transform.position;
 
-            // 아이콘 설정 - ✅ 별칭 사용!
             if (imgAreaType != null)
             {
                 imgAreaType.sprite = areaType == RefactoredAreaData.AreaType.Ocean
@@ -77,7 +74,6 @@ namespace HNS.MonitorA.Views
                     : nuclearSprite;
             }
 
-            // 제목 설정 - ✅ 별칭 사용!
             if (lblTitle != null)
             {
                 lblTitle.text = areaType == RefactoredAreaData.AreaType.Ocean
@@ -85,7 +81,6 @@ namespace HNS.MonitorA.Views
                     : "주요 발전소 모니터링 현황";
             }
 
-            // ItemView 풀 생성 (Object Pooling)
             if (listPanel != null)
             {
                 itemViews = listPanel.GetComponentsInChildren<AreaListTypeItemView>(true)
@@ -107,7 +102,6 @@ namespace HNS.MonitorA.Views
                 return;
             }
 
-            // 타입에 맞는 이벤트 구독 - ✅ 별칭 사용!
             if (areaType == RefactoredAreaData.AreaType.Ocean)
             {
                 AreaListTypeViewModel.Instance.OnOceanAreasChanged += RenderAreas;
@@ -124,7 +118,6 @@ namespace HNS.MonitorA.Views
         {
             if (AreaListTypeViewModel.Instance == null) return;
 
-            // ✅ 별칭 사용!
             if (areaType == RefactoredAreaData.AreaType.Ocean)
             {
                 AreaListTypeViewModel.Instance.OnOceanAreasChanged -= RenderAreas;
@@ -132,6 +125,20 @@ namespace HNS.MonitorA.Views
             else
             {
                 AreaListTypeViewModel.Instance.OnNuclearAreasChanged -= RenderAreas;
+            }
+        }
+
+        /// <summary>
+        /// ⭐⭐⭐ 아이템 이벤트 구독 해제
+        /// </summary>
+        private void UnsubscribeFromItems()
+        {
+            foreach (var item in itemViews)
+            {
+                if (item != null)
+                {
+                    item.OnNavigateClicked -= OnAreaItemClicked;
+                }
             }
         }
 
@@ -152,17 +159,76 @@ namespace HNS.MonitorA.Views
         {
             LogInfo($"지역 렌더링: {areas.Count}개");
 
+            // ⭐ 기존 이벤트 구독 해제
+            UnsubscribeFromItems();
+
             for (int i = 0; i < itemViews.Count; i++)
             {
                 if (i < areas.Count)
                 {
                     itemViews[i].gameObject.SetActive(true);
                     itemViews[i].Bind(areas[i]);
+
+                    // ⭐⭐⭐ 아이템 클릭 이벤트 구독
+                    itemViews[i].OnNavigateClicked += OnAreaItemClicked;
                 }
                 else
                 {
                     itemViews[i].gameObject.SetActive(false);
                 }
+            }
+        }
+
+        #endregion
+
+        #region 이벤트 핸들러
+
+        /// <summary>
+        /// ⭐⭐⭐ 지역 아이템 클릭 시 지역 지도로 이동
+        /// </summary>
+        private void OnAreaItemClicked(int areaId)
+        {
+            LogInfo($"지역 선택: AreaId={areaId}");
+
+            // 1. MapAreaViewModel에 데이터 로드 요청
+            if (MapAreaViewModel.Instance != null)
+            {
+                MapAreaViewModel.Instance.LoadAreaData(areaId);
+                LogInfo($"✅ MapAreaViewModel.LoadAreaData({areaId}) 호출 완료");
+            }
+            else
+            {
+                LogError("MapAreaViewModel.Instance가 null입니다!");
+            }
+
+            // 2. 전국 지도 축소 (MapNationView)
+            var mapNationView = FindFirstObjectByType<MapNationView>();
+            if (mapNationView != null)
+            {
+                mapNationView.SwitchToMinimapMode();
+                LogInfo("✅ 전국 지도 축소 모드 전환");
+            }
+            else
+            {
+                LogWarning("MapNationView를 찾을 수 없습니다!");
+            }
+
+            // 3. ⭐ 지역 지도 표시 (MapAreaView의 CanvasGroup 활성화)
+            var mapAreaView = FindFirstObjectByType<HNS.MonitorA.Views.MapAreaView>();
+            if (mapAreaView != null)
+            {
+                var canvasGroup = mapAreaView.GetComponent<CanvasGroup>();
+                if (canvasGroup != null)
+                {
+                    canvasGroup.alpha = 1f;
+                    canvasGroup.interactable = true;
+                    canvasGroup.blocksRaycasts = true;
+                    LogInfo("✅ 지역 지도 표시 완료");
+                }
+            }
+            else
+            {
+                LogWarning("MapAreaView를 찾을 수 없습니다!");
             }
         }
 
@@ -202,6 +268,11 @@ namespace HNS.MonitorA.Views
         private void LogInfo(string message)
         {
             Debug.Log($"[AreaListTypeView-{areaType}] {message}");
+        }
+
+        private void LogWarning(string message)
+        {
+            Debug.LogWarning($"[AreaListTypeView-{areaType}] {message}");
         }
 
         private void LogError(string message)
