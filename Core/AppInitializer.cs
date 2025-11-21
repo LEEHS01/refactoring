@@ -1,4 +1,5 @@
-﻿using HNS.MonitorA.ViewModels;
+﻿using HNS.Common.ViewModels;
+using HNS.MonitorA.ViewModels;
 using Services;
 using System.Collections;
 using UnityEngine;
@@ -54,6 +55,9 @@ public class AppInitializer : MonoBehaviour
     {
         Debug.Log("[AppInitializer] ViewModel 자동 생성 시작...");
 
+        // Common ViewModel들 (공통)
+        CreateViewModel<PopupSettingViewModel>("PopupSettingViewModel");
+
         // Monitor B ViewModel들
         CreateViewModel<AlarmLogViewModel>("AlarmLogViewModel");
         CreateViewModel<TimeViewModel>("TimeViewModel");
@@ -76,7 +80,8 @@ public class AppInitializer : MonoBehaviour
         CreateViewModel<PopupAlarmViewModel>("PopupAlarmViewModel");
 
         // 모든 ViewModel이 준비될 때까지 대기
-        while (AlarmLogViewModel.Instance == null ||
+        while (PopupSettingViewModel.Instance == null ||
+               AlarmLogViewModel.Instance == null ||
                TimeViewModel.Instance == null ||
                SensorMonitorViewModel.Instance == null ||
                SensorChartViewModel.Instance == null ||
@@ -102,7 +107,7 @@ public class AppInitializer : MonoBehaviour
         Debug.Log($"  - TimeViewModel: {TimeViewModel.Instance != null}");
         Debug.Log($"  - SensorMonitorViewModel: {SensorMonitorViewModel.Instance != null}");
         Debug.Log($"  - PopUpToxinDetail2ViewModel: {PopUpToxinDetail2ViewModel.Instance != null}");
-        Debug.Log($"  - MonthlyAlarmTop5ViewModel: {MonthlyAlarmTop5ViewModel.Instance != null}");  // ← 추가!
+        Debug.Log($"  - MonthlyAlarmTop5ViewModel: {MonthlyAlarmTop5ViewModel.Instance != null}");
     }
 
     /// <summary>

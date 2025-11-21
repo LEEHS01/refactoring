@@ -1,7 +1,6 @@
-﻿using HNS.Services;
+﻿using HNS.Common.Models;
+using HNS.Services;
 using Models;
-using Models.MonitorB;
-using Onthesys;
 using Repositories.MonitorB;
 using System;
 using System.Collections.Generic;

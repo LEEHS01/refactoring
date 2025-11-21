@@ -5,7 +5,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Services;
 using Models.MonitorB;
-using HNS.MonitorA.Models; 
+using HNS.MonitorA.Models;
+using HNS.Common.Models;
+using ObservatoryModel = Models.MonitorB.ObservatoryModel;
 
 namespace HNS.MonitorA.Repositories
 {
@@ -103,7 +105,7 @@ namespace HNS.MonitorA.Repositories
                 {
                     AreaId = group.Key.AreaId,
                     AreaName = group.Key.AreaName,
-                    AreaType = group.Key.AreaType,
+                    AreaType = (Common.Models.AreaData.AreaType)group.Key.AreaType,
                     GreenCount = group.Count(obs => GetObsStatusFromAlarms(obs.OBSIDX, activeAlarms) == 0),
                     YellowCount = group.Count(obs => GetObsStatusFromAlarms(obs.OBSIDX, activeAlarms) == 1),
                     RedCount = group.Count(obs => GetObsStatusFromAlarms(obs.OBSIDX, activeAlarms) == 2),

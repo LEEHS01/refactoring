@@ -1,4 +1,4 @@
-﻿using Onthesys;
+﻿using HNS.Common.Models;
 using UnityEngine;
 
 namespace Assets.Scripts_refactoring.Models.MonitorA

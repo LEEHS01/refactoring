@@ -1,5 +1,6 @@
 ﻿using System;
 
+
 namespace Models.MonitorB
 {
     [Serializable]

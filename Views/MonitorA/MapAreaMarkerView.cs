@@ -1,5 +1,5 @@
 ﻿using Assets.Scripts_refactoring.Models.MonitorA;
-using Onthesys;
+using HNS.Common.Models;
 using System;
 using TMPro;
 using UnityEngine;

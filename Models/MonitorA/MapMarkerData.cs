@@ -1,4 +1,5 @@
 using UnityEngine;
+using HNS.Common.Models;
 
 namespace HNS.MonitorA.Models
 {
@@ -9,7 +10,7 @@ namespace HNS.MonitorA.Models
     {
         public int AreaId { get; set; }
         public string AreaName { get; set; }
-        public AreaData.AreaType AreaType { get; set; }
+        public HNS.Common.Models.AreaData.AreaType AreaType { get; set; }
         public int Status { get; set; }  // 0=Green, 1=Yellow, 2=Red, 3=Purple
     }
 }

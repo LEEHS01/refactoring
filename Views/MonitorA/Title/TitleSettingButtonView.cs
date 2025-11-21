@@ -1,4 +1,5 @@
-﻿using TMPro;
+﻿using HNS.Common.Views;
+using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
@@ -40,8 +41,11 @@ namespace HNS.MonitorA.Views
 
         private void OnClick()
         {
-            Debug.Log("⚙환경설정 버튼 클릭");
-            // TODO: UiManager.Instance.Invoke(UiEventType.PopupSetting, 0);
+            PopupSettingView popupView = FindFirstObjectByType<PopupSettingView>();
+            if (popupView != null)
+            {
+                popupView.OpenPopup(0);  // 전체 설정
+            }
         }
     }
 }

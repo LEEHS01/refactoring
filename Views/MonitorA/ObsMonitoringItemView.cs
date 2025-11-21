@@ -4,8 +4,8 @@ using TMPro;
 using Models.MonitorA;
 using System.Collections.Generic;
 using System.Linq;
-using Onthesys;
 using Common.UI;
+using HNS.Common.Models;
 
 namespace Views.MonitorA
 {

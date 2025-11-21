@@ -1,4 +1,5 @@
 ﻿using HNS.Services;
+using HNS.Common.Views;
 using Models.MonitorA;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,13 +7,16 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using ViewModels.MonitorA;
+using HNS.Common.Models;
+using DG.Tweening;  // ⭐ DOTween 추가
 
 namespace Views.MonitorA
 {
     /// <summary>
     /// 관측소 모니터링 패널 View
-    /// ⚡ DOTween 제거: 즉시 렌더링 방식으로 성능 최적화
+    /// ⚡ 설비이상 시 깜박임 효과 추가
     /// ✅ SchedulerService 구독 제거 (ViewModel만 구독)
+    /// ✅ 관측소 전체 상태 Lamp 추가
     /// </summary>
     public class ObsMonitoringView : MonoBehaviour
     {
@@ -20,6 +24,10 @@ namespace Views.MonitorA
         [SerializeField] private Image lblToxin;
         [SerializeField] private Image lblQuality;
         [SerializeField] private Image lblChemical;
+
+        // ⭐⭐⭐ 관측소 전체 상태 Lamp (1개)
+        [Header("Observatory Status Lamp")]
+        [SerializeField] private Image lampObservatory;  // 왼쪽 초록 동그라미
 
         [Header("Content Containers")]
         [SerializeField] private Transform toxinContent;
@@ -45,6 +53,7 @@ namespace Views.MonitorA
         private Vector3 scaledVisiblePosition;
 
         private Dictionary<string, bool> boardErrorStates = new();
+        private Color originalLegendColor = Color.white;  // ⭐ 원본 색상 저장
         #endregion
 
         #region Unity Lifecycle
@@ -52,6 +61,10 @@ namespace Views.MonitorA
         {
             defaultPos = transform.position;
             CalculateScaledPosition();
+
+            // ⭐ 원본 Legend 색상 저장
+            if (lblToxin != null)
+                originalLegendColor = lblToxin.color;
 
             Transform scrollContent = transform.Find("Scroll").Find("Content");
 
@@ -77,6 +90,20 @@ namespace Views.MonitorA
             chemicalItems.ForEach(item => item.gameObject.SetActive(false));
             qualityItems.ForEach(item => item.gameObject.SetActive(false));
 
+            // ⭐ Lamp 자동 찾기
+            if (lampObservatory == null)
+            {
+                lampObservatory = transform.Find("Icon_EventPanel_TitleCircle")?.Find("Icon_SignalLamp")?.GetComponent<Image>();
+                if (lampObservatory != null)
+                {
+                    Debug.Log("[ObsMonitoringView] lampObservatory 자동으로 찾음");
+                }
+                else
+                {
+                    Debug.LogWarning("[ObsMonitoringView] lampObservatory를 찾을 수 없습니다! Inspector에서 연결하세요.");
+                }
+            }
+
             // ViewModel 이벤트 구독
             if (ObsMonitoringViewModel.Instance != null)
             {
@@ -84,6 +111,7 @@ namespace Views.MonitorA
                 ObsMonitoringViewModel.Instance.OnChemicalLoaded.AddListener(OnChemicalLoaded);
                 ObsMonitoringViewModel.Instance.OnQualityLoaded.AddListener(OnQualityLoaded);
                 ObsMonitoringViewModel.Instance.OnBoardErrorChanged.AddListener(OnBoardErrorChanged);
+                ObsMonitoringViewModel.Instance.OnObservatoryStatusChanged.AddListener(OnObservatoryStatusChanged);
                 ObsMonitoringViewModel.Instance.OnError.AddListener(OnError);
 
                 Debug.Log("[ObsMonitoringView] ViewModel 이벤트 구독 완료");
@@ -97,18 +125,23 @@ namespace Views.MonitorA
             {
                 btnSetting.onClick.AddListener(OnSettingButtonClick);
             }
-
-            // ❌ SchedulerService 구독 제거 (ViewModel만 구독)
         }
 
         private void OnDestroy()
         {
+            // ⭐ DOTween 정리
+            lblToxin?.DOKill();
+            lblChemical?.DOKill();
+            lblQuality?.DOKill();
+            lampObservatory?.DOKill();
+
             if (ObsMonitoringViewModel.Instance != null)
             {
                 ObsMonitoringViewModel.Instance.OnToxinLoaded.RemoveListener(OnToxinLoaded);
                 ObsMonitoringViewModel.Instance.OnChemicalLoaded.RemoveListener(OnChemicalLoaded);
                 ObsMonitoringViewModel.Instance.OnQualityLoaded.RemoveListener(OnQualityLoaded);
                 ObsMonitoringViewModel.Instance.OnBoardErrorChanged.RemoveListener(OnBoardErrorChanged);
+                ObsMonitoringViewModel.Instance.OnObservatoryStatusChanged.RemoveListener(OnObservatoryStatusChanged);
                 ObsMonitoringViewModel.Instance.OnError.RemoveListener(OnError);
 
                 Debug.Log("[ObsMonitoringView] ViewModel 이벤트 구독 해제");
@@ -118,8 +151,6 @@ namespace Views.MonitorA
             {
                 btnSetting.onClick.RemoveListener(OnSettingButtonClick);
             }
-
-            // ❌ SchedulerService 구독 해제 제거
         }
         #endregion
 
@@ -187,6 +218,9 @@ namespace Views.MonitorA
             CreateItems(qualityContent, data, qualityItems);
         }
 
+        /// <summary>
+        /// ⭐⭐⭐ 보드 Legend 색상 업데이트 (설비이상 시 깜박임)
+        /// </summary>
         private void OnBoardErrorChanged(string boardType, bool hasError)
         {
             Image targetImage = boardType switch
@@ -200,9 +234,45 @@ namespace Views.MonitorA
             if (targetImage == null) return;
 
             boardErrorStates[boardType] = hasError;
-            targetImage.color = hasError ? Color.red : Color.white;
 
-            Debug.Log($"[ObsMonitoringView] 보드 상태 변경: {boardType} = {(hasError ? "에러" : "정상")}");
+            // ⭐⭐⭐ 깜박임 효과 추가
+            SetImageColorEffect(targetImage, hasError);
+
+            Debug.Log($"[ObsMonitoringView] 보드 Legend: {boardType} = {(hasError ? "설비이상(깜박임)" : "정상")}");
+        }
+
+        /// <summary>
+        /// ⭐⭐⭐ 관측소 전체 상태 Lamp 업데이트 (설비이상 시 깜박임)
+        /// </summary>
+        private void OnObservatoryStatusChanged(ToxinStatus status)
+        {
+            if (lampObservatory == null)
+            {
+                Debug.LogWarning("[ObsMonitoringView] lampObservatory가 연결되지 않았습니다!");
+                return;
+            }
+
+            Color statusColor = status switch
+            {
+                ToxinStatus.Purple => HexToColor("#6C00E2"),
+                ToxinStatus.Red => Color.red,
+                ToxinStatus.Yellow => Color.yellow,
+                ToxinStatus.Green => HexToColor("#3EFF00"),
+                _ => Color.white
+            };
+
+            // ⭐⭐⭐ Purple(설비이상)일 때만 깜박임
+            if (status == ToxinStatus.Purple)
+            {
+                SetLampBlinkEffect(lampObservatory, statusColor);
+            }
+            else
+            {
+                lampObservatory.DOKill();
+                lampObservatory.color = statusColor;
+            }
+
+            Debug.Log($"[ObsMonitoringView] 관측소 Lamp: {status} {(status == ToxinStatus.Purple ? "(깜박임)" : "")}");
         }
 
         private void OnError(string errorMessage)
@@ -311,6 +381,48 @@ namespace Views.MonitorA
         }
         #endregion
 
+        #region Private Methods - Blink Effects
+
+        /// <summary>
+        /// ⭐⭐⭐ Legend 이미지 깜박임 효과 (원본 방식)
+        /// </summary>
+        private void SetImageColorEffect(Image image, bool hasError)
+        {
+            if (image == null) return;
+
+            image.DOKill();  // 기존 애니메이션 중지
+
+            if (hasError)
+            {
+                // ⭐ 설비이상: 빨간색으로 깜박임
+                image.DOColor(Color.red, 0.8f)
+                    .SetLoops(-1, LoopType.Yoyo)  // 무한 반복
+                    .SetEase(Ease.InOutSine);     // 부드러운 전환
+            }
+            else
+            {
+                // 정상: 원래 색상으로 복원
+                image.color = originalLegendColor;
+            }
+        }
+
+        /// <summary>
+        /// ⭐⭐⭐ Lamp 깜박임 효과
+        /// </summary>
+        private void SetLampBlinkEffect(Image lamp, Color targetColor)
+        {
+            if (lamp == null) return;
+
+            lamp.DOKill();  // 기존 애니메이션 중지
+
+            // ⭐ 보라색으로 깜박임
+            lamp.DOColor(targetColor, 0.8f)
+                .SetLoops(-1, LoopType.Yoyo)
+                .SetEase(Ease.InOutSine);
+        }
+
+        #endregion
+
         #region Private Methods - Board Color Management
         /// <summary>
         /// 모든 보드 색상 초기화
@@ -319,9 +431,38 @@ namespace Views.MonitorA
         {
             boardErrorStates.Clear();
 
-            if (lblToxin != null) lblToxin.color = Color.white;
-            if (lblChemical != null) lblChemical.color = Color.white;
-            if (lblQuality != null) lblQuality.color = Color.white;
+            // ⭐ 애니메이션 중지 후 초기화
+            if (lblToxin != null)
+            {
+                lblToxin.DOKill();
+                lblToxin.color = originalLegendColor;
+            }
+
+            if (lblChemical != null)
+            {
+                lblChemical.DOKill();
+                lblChemical.color = originalLegendColor;
+            }
+
+            if (lblQuality != null)
+            {
+                lblQuality.DOKill();
+                lblQuality.color = originalLegendColor;
+            }
+
+            // ⭐ Lamp도 초기화
+            if (lampObservatory != null)
+            {
+                lampObservatory.DOKill();
+                lampObservatory.color = HexToColor("#3EFF00");
+            }
+        }
+
+        private static Color HexToColor(string hex)
+        {
+            if (ColorUtility.TryParseHtmlString(hex, out Color color))
+                return color;
+            return Color.white;
         }
         #endregion
 
@@ -329,6 +470,11 @@ namespace Views.MonitorA
         private void OnSettingButtonClick()
         {
             Debug.Log("[ObsMonitoringView] 설정 버튼 클릭");
+            PopupSettingView popupView = FindFirstObjectByType<PopupSettingView>();
+            if (popupView != null)
+            {
+                popupView.OpenPopup(currentObsId);  // 현재 관측소
+            }
         }
         #endregion
 

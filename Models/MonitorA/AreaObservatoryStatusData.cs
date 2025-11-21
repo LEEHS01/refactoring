@@ -1,4 +1,5 @@
 ﻿using System;
+using HNS.Common.Models;
 
 namespace HNS.MonitorA.Models
 {
@@ -10,7 +11,7 @@ namespace HNS.MonitorA.Models
     {
         public int AreaId { get; set; }
         public string AreaName { get; set; }
-        public AreaData.AreaType AreaType { get; set; }
+        public HNS.Common.Models.AreaData.AreaType AreaType { get; set; }
         public int GreenCount { get; set; }      // 정상
         public int YellowCount { get; set; }     // 경계
         public int RedCount { get; set; }        // 경보
@@ -20,7 +21,7 @@ namespace HNS.MonitorA.Models
         {
             AreaId = 0;
             AreaName = "";
-            AreaType = AreaData.AreaType.Ocean;
+            AreaType = HNS.Common.Models.AreaData.AreaType.Ocean;
             GreenCount = 0;
             YellowCount = 0;
             RedCount = 0;

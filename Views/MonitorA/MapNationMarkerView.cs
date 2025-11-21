@@ -1,11 +1,12 @@
-﻿using HNS.MonitorA.Models;
-using Onthesys;
+﻿using HNS.Common.Models;
+using HNS.MonitorA.Models;
 using System;
 using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using RefactoredAreaData = HNS.Common.Models.AreaData;
 
 namespace Views.MonitorA
 {
@@ -101,9 +102,9 @@ namespace Views.MonitorA
             // 아이콘
             if (imgIcon != null)
             {
-                if (data.AreaType == AreaData.AreaType.Nuclear && iconNuclear != null)
+                if (data.AreaType == RefactoredAreaData.AreaType.Nuclear && iconNuclear != null)
                     imgIcon.sprite = iconNuclear;
-                else if (data.AreaType == AreaData.AreaType.Ocean && iconOcean != null)
+                else if (data.AreaType == RefactoredAreaData.AreaType.Ocean && iconOcean != null)
                     imgIcon.sprite = iconOcean;
             }
         }

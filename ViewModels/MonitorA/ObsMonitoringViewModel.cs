@@ -1,7 +1,7 @@
-﻿using HNS.Services;
+﻿using HNS.Common.Models;
+using HNS.Services;
 using Models.MonitorA;
 using Models.MonitorB;
-using Onthesys;
 using Repositories.MonitorA;
 using System;
 using System.Collections;
@@ -15,8 +15,11 @@ namespace ViewModels.MonitorA
 {
     /// <summary>
     /// 관측소 모니터링 ViewModel
-    /// ✅ SensorMonitorViewModel 데이터 재사용 (문제 2 해결)
-    /// ✅ 스케줄러 이벤트만 구독 (문제 3 해결)
+    /// ✅ SensorMonitorViewModel 데이터 재사용
+    /// ✅ 스케줄러 이벤트만 구독
+    /// ✅ 독성도 0 초과 시 무조건 Yellow
+    /// ✅ 설비이상은 알람 데이터로 판정
+    /// ✅ 관측소 전체 상태 Lamp 업데이트
     /// </summary>
     public class ObsMonitoringViewModel : MonoBehaviour
     {
@@ -35,7 +38,6 @@ namespace ViewModels.MonitorA
             DontDestroyOnLoad(gameObject);
             _repository = new ObsMonitoringRepository();
 
-            // ⭐ 스케줄러 이벤트 구독
             SubscribeToScheduler();
 
             Debug.Log("[ObsMonitoringViewModel] 초기화 완료");
@@ -43,16 +45,13 @@ namespace ViewModels.MonitorA
 
         private void OnDestroy()
         {
-            // 스케줄러 이벤트 구독 해제
             UnsubscribeFromScheduler();
 
-            // AlarmLogViewModel 구독 해제
             if (AlarmLogViewModel.Instance != null)
             {
                 AlarmLogViewModel.Instance.OnAlarmSelected.RemoveListener(OnAlarmSelected);
             }
 
-            // ⭐⭐⭐ SensorMonitorViewModel 구독 해제
             if (SensorMonitorViewModel.Instance != null)
             {
                 SensorMonitorViewModel.Instance.OnSensorsLoaded -= OnSensorMonitorLoaded;
@@ -83,6 +82,9 @@ namespace ViewModels.MonitorA
         public class BoardErrorEvent : UnityEvent<string, bool> { }
 
         [Serializable]
+        public class ObservatoryStatusEvent : UnityEvent<ToxinStatus> { }
+
+        [Serializable]
         public class ErrorEvent : UnityEvent<string> { }
 
         [Header("Unity Events")]
@@ -90,19 +92,18 @@ namespace ViewModels.MonitorA
         public SensorListEvent OnChemicalLoaded = new SensorListEvent();
         public SensorListEvent OnQualityLoaded = new SensorListEvent();
         public BoardErrorEvent OnBoardErrorChanged = new BoardErrorEvent();
+        public ObservatoryStatusEvent OnObservatoryStatusChanged = new ObservatoryStatusEvent();  // ⭐ 추가
         public ErrorEvent OnError = new ErrorEvent();
         #endregion
 
         private void Start()
         {
-            // AlarmLogViewModel 구독
             if (AlarmLogViewModel.Instance != null)
             {
                 AlarmLogViewModel.Instance.OnAlarmSelected.AddListener(OnAlarmSelected);
                 Debug.Log("[ObsMonitoringViewModel] ✅ AlarmLogViewModel 구독 완료");
             }
 
-            // ⭐⭐⭐ SensorMonitorViewModel 구독 (데이터 재사용)
             if (SensorMonitorViewModel.Instance != null)
             {
                 SensorMonitorViewModel.Instance.OnSensorsLoaded += OnSensorMonitorLoaded;
@@ -110,10 +111,8 @@ namespace ViewModels.MonitorA
             }
         }
 
-        // ⭐⭐⭐ SensorMonitorViewModel에서 데이터 로드 완료 시
         private void OnSensorMonitorLoaded(List<SensorInfoData> sensors)
         {
-            // 현재 ObsId와 일치하고, 화면이 활성화되어 있을 때만 처리
             if (!_isActive || _currentObsId <= 0) return;
 
             if (SensorMonitorViewModel.Instance.CurrentObsId != _currentObsId)
@@ -124,7 +123,6 @@ namespace ViewModels.MonitorA
 
             Debug.Log($"[ObsMonitoringViewModel] ✅ SensorMonitorViewModel 데이터 재사용: {sensors.Count}개");
 
-            // ⭐ 차트 데이터만 추가로 로드
             StartCoroutine(LoadChartDataOnly(_currentObsId, sensors));
         }
 
@@ -145,7 +143,6 @@ namespace ViewModels.MonitorA
             _currentObsId = obsId;
             _isActive = true;
 
-            // ⭐⭐⭐ SensorMonitorViewModel 데이터가 이미 있으면 재사용
             if (SensorMonitorViewModel.Instance != null &&
                 SensorMonitorViewModel.Instance.CurrentObsId == obsId)
             {
@@ -158,7 +155,6 @@ namespace ViewModels.MonitorA
                 }
             }
 
-            // ⭐ 데이터가 없으면 직접 로드
             StartCoroutine(LoadDataCoroutine(obsId));
         }
 
@@ -231,7 +227,6 @@ namespace ViewModels.MonitorA
             {
                 Debug.Log($"[ObsMonitoringViewModel] 10분 주기 - SensorMonitorViewModel에게 새로고침 요청");
 
-                // ✅ SensorMonitorViewModel에게 새로고침 요청 (OnSensorMonitorLoaded에서 차트 자동 갱신)
                 if (SensorMonitorViewModel.Instance != null)
                 {
                     SensorMonitorViewModel.Instance.RefreshSensors();
@@ -245,7 +240,6 @@ namespace ViewModels.MonitorA
             {
                 Debug.Log($"[ObsMonitoringViewModel] 알람 발생 - SensorMonitorViewModel에게 새로고침 요청");
 
-                // ✅ SensorMonitorViewModel에게 새로고침 요청
                 if (SensorMonitorViewModel.Instance != null)
                 {
                     SensorMonitorViewModel.Instance.RefreshSensors();
@@ -259,7 +253,6 @@ namespace ViewModels.MonitorA
             {
                 Debug.Log($"[ObsMonitoringViewModel] 알람 해제 - SensorMonitorViewModel에게 새로고침 요청");
 
-                // ✅ SensorMonitorViewModel에게 새로고침 요청
                 if (SensorMonitorViewModel.Instance != null)
                 {
                     SensorMonitorViewModel.Instance.RefreshSensors();
@@ -269,9 +262,6 @@ namespace ViewModels.MonitorA
         #endregion
 
         #region Private Coroutines
-        /// <summary>
-        /// ⭐⭐⭐ 새 메서드: SensorMonitorViewModel 데이터 + 차트만 로드
-        /// </summary>
         private IEnumerator LoadChartDataOnly(int obsId, List<SensorInfoData> sensorInfo)
         {
             List<ChartDataModel> chartData = null;
@@ -279,7 +269,6 @@ namespace ViewModels.MonitorA
             bool chartLoaded = false;
             bool stepLoaded = false;
 
-            // 1. GET_CHARTVALUE
             DateTime endTime = DateTime.Now;
             endTime = new DateTime(endTime.Year, endTime.Month, endTime.Day,
                                    endTime.Hour, (endTime.Minute / 10) * 10, 0);
@@ -300,7 +289,6 @@ namespace ViewModels.MonitorA
                 }
             ));
 
-            // 2. GET_SENSOR_STEP
             StartCoroutine(_repository.GetSensorStep(
                 obsId,
                 step =>
@@ -319,14 +307,10 @@ namespace ViewModels.MonitorA
 
             Debug.Log($"[ObsMonitoringViewModel] ✅ 차트 데이터 로드 완료 (SensorInfo 재사용)");
 
-            // ViewModel에서 변환
             var sensorDataList = ConvertToSensorData(sensorInfo, chartData, sensorStep);
             ProcessAndEmitData(sensorDataList);
         }
 
-        /// <summary>
-        /// ✅ 직접 로드 (SensorMonitorViewModel 데이터가 없을 때)
-        /// </summary>
         private IEnumerator LoadDataCoroutine(int obsId)
         {
             List<SensorInfoData> sensorInfo = null;
@@ -339,7 +323,6 @@ namespace ViewModels.MonitorA
 
             string errorMsg = null;
 
-            // 1. GET_SENSOR_INFO
             StartCoroutine(_repository.GetSensorInfo(
                 obsId,
                 data =>
@@ -354,7 +337,6 @@ namespace ViewModels.MonitorA
                 }
             ));
 
-            // 2. GET_CHARTVALUE
             DateTime endTime = DateTime.Now;
             endTime = new DateTime(endTime.Year, endTime.Month, endTime.Day,
                                    endTime.Hour, (endTime.Minute / 10) * 10, 0);
@@ -375,7 +357,6 @@ namespace ViewModels.MonitorA
                 }
             ));
 
-            // 3. GET_SENSOR_STEP
             StartCoroutine(_repository.GetSensorStep(
                 obsId,
                 step =>
@@ -451,9 +432,6 @@ namespace ViewModels.MonitorA
         #endregion
 
         #region Private Methods
-        /// <summary>
-        /// ✅ SensorInfoData → SensorItemData 변환
-        /// </summary>
         private List<SensorItemData> ConvertToSensorData(
             List<SensorInfoData> sensorInfo,
             List<ChartDataModel> chartData,
@@ -493,31 +471,53 @@ namespace ViewModels.MonitorA
             return result;
         }
 
+        /// <summary>
+        /// ⭐⭐⭐ 센서 상태 계산
+        /// - 독성도(Board=1)는 0 초과면 무조건 Yellow
+        /// - 설비이상은 알람 데이터로 판정 (여기서는 기본 계산만)
+        /// </summary>
         private ToxinStatus CalculateStatus(SensorInfoData sensor, int sensorStep)
         {
-            bool isActive = sensor.USEYN?.Trim() == "1";
-            bool isFixing = sensor.INSPECTIONFLAG?.Trim() == "1";
-
-            if (!isActive || isFixing)
+            // ⭐ 독성도(BoardId=1)는 0 초과면 무조건 경계(Yellow) 이상
+            if (sensor.BOARDIDX == 1)
             {
-                return ToxinStatus.Purple;
+                float val = sensor.VAL;
+                float hihi = sensor.HIHI;
+                float hi = sensor.HI;
+
+                // 경보값 체크
+                if (hihi > 0 && val >= hihi)
+                {
+                    return ToxinStatus.Red;
+                }
+
+                // 경계값 체크
+                if (hi > 0 && val >= hi)
+                {
+                    return ToxinStatus.Yellow;
+                }
+
+                // ⭐⭐⭐ 독성도는 0 초과면 무조건 Yellow
+                if (val > 0)
+                {
+                    return ToxinStatus.Yellow;
+                }
+
+                // 0 이하면 정상
+                return ToxinStatus.Green;
             }
 
-            // ⭐ VAL이 0이면 Purple (측정 안 됨)
-            if (sensor.VAL == 0)
-            {
-                return ToxinStatus.Purple;
-            }
+            // ⭐ 독성도 외 센서 (화학물질, 수질)
+            float sensorVal = sensor.VAL;
+            float sensorHihi = sensor.HIHI;
+            float sensorHi = sensor.HI;
 
-            float hihi = sensor.HIHI;
-            float hi = sensor.HI;
-
-            if (hihi > 0 && sensor.VAL >= hihi)
+            if (sensorHihi > 0 && sensorVal >= sensorHihi)
             {
                 return ToxinStatus.Red;
             }
 
-            if (hi > 0 && sensor.VAL >= hi)
+            if (sensorHi > 0 && sensorVal >= sensorHi)
             {
                 return ToxinStatus.Yellow;
             }
@@ -544,23 +544,97 @@ namespace ViewModels.MonitorA
             OnChemicalLoaded?.Invoke(chemicalList);
             OnQualityLoaded?.Invoke(qualityList);
 
-            UpdateBoardErrors(toxinList, chemicalList, qualityList);
+            UpdateBoardAndObservatoryStatus(toxinList, chemicalList, qualityList);
         }
 
-        private void UpdateBoardErrors(
+        /// <summary>
+        /// ⭐⭐⭐ 보드별 Legend 색상 + 관측소 전체 Lamp 색상 업데이트
+        /// </summary>
+        private void UpdateBoardAndObservatoryStatus(
             List<SensorItemData> toxinList,
             List<SensorItemData> chemicalList,
             List<SensorItemData> qualityList)
         {
-            bool toxinError = toxinList.Any(s => s.Status == ToxinStatus.Purple);
-            bool chemicalError = chemicalList.Any(s => s.Status == ToxinStatus.Purple);
-            bool qualityError = qualityList.Any(s => s.Status == ToxinStatus.Purple);
+            // 1. 보드별 상태 계산 (우선순위: Purple > Red > Yellow > Green)
+            ToxinStatus toxinStatus = GetBoardStatus(toxinList, 1);
+            ToxinStatus chemicalStatus = GetBoardStatus(chemicalList, 2);
+            ToxinStatus qualityStatus = GetBoardStatus(qualityList, 3);
 
-            OnBoardErrorChanged?.Invoke("toxin", toxinError);
-            OnBoardErrorChanged?.Invoke("chemical", chemicalError);
-            OnBoardErrorChanged?.Invoke("quality", qualityError);
+            // 2. 보드별 Legend 색상 업데이트 (설비이상만 빨간색으로 표시)
+            OnBoardErrorChanged?.Invoke("toxin", toxinStatus == ToxinStatus.Purple);
+            OnBoardErrorChanged?.Invoke("chemical", chemicalStatus == ToxinStatus.Purple);
+            OnBoardErrorChanged?.Invoke("quality", qualityStatus == ToxinStatus.Purple);
 
-            Debug.Log($"[ObsMonitoringViewModel] 보드 에러: Toxin={toxinError}, Chemical={chemicalError}, Quality={qualityError}");
+            // 3. ⭐⭐⭐ 관측소 전체 상태 = 가장 높은 우선순위 상태
+            ToxinStatus observatoryStatus = GetHighestStatus(toxinStatus, chemicalStatus, qualityStatus);
+
+            OnObservatoryStatusChanged?.Invoke(observatoryStatus);
+
+            Debug.Log($"[ObsMonitoringViewModel] 보드 상태: Toxin={toxinStatus}, Chemical={chemicalStatus}, Quality={qualityStatus}");
+            Debug.Log($"[ObsMonitoringViewModel] 관측소 전체 상태: {observatoryStatus}");
+        }
+
+        /// <summary>
+        /// ⭐⭐⭐ 보드 전체 상태 계산 (설비이상은 알람 데이터로 판정)
+        /// Purple(설비이상) > Red(경보) > Yellow(경계) > Green(정상)
+        /// </summary>
+        private ToxinStatus GetBoardStatus(List<SensorItemData> sensors, int boardId)
+        {
+            if (sensors == null || sensors.Count == 0)
+            {
+                return ToxinStatus.Green;
+            }
+
+            // ⭐⭐⭐ 설비이상은 알람 데이터(status=0)로 판정!
+            bool hasPurpleAlarm = false;
+            if (AlarmLogViewModel.Instance != null)
+            {
+                var activeAlarms = AlarmLogViewModel.Instance.AllLogs?
+                    .Where(log => !log.isCancelled && log.obsId == _currentObsId)
+                    .ToList();
+
+                if (activeAlarms != null)
+                {
+                    // 이 보드에 status=0 (설비이상) 알람이 있는지 확인
+                    hasPurpleAlarm = activeAlarms.Any(a => a.boardId == boardId && a.status == 0);
+                }
+            }
+
+            if (hasPurpleAlarm)
+            {
+                return ToxinStatus.Purple;
+            }
+
+            // 센서 측정값 기반 상태 (Red > Yellow > Green)
+            if (sensors.Any(s => s.Status == ToxinStatus.Red))
+            {
+                return ToxinStatus.Red;
+            }
+
+            if (sensors.Any(s => s.Status == ToxinStatus.Yellow))
+            {
+                return ToxinStatus.Yellow;
+            }
+
+            return ToxinStatus.Green;
+        }
+
+        /// <summary>
+        /// ⭐⭐⭐ 가장 높은 우선순위 상태 반환
+        /// </summary>
+        private ToxinStatus GetHighestStatus(params ToxinStatus[] statuses)
+        {
+            // Purple(설비이상) > Red(경보) > Yellow(경계) > Green(정상)
+            if (statuses.Any(s => s == ToxinStatus.Purple))
+                return ToxinStatus.Purple;
+
+            if (statuses.Any(s => s == ToxinStatus.Red))
+                return ToxinStatus.Red;
+
+            if (statuses.Any(s => s == ToxinStatus.Yellow))
+                return ToxinStatus.Yellow;
+
+            return ToxinStatus.Green;
         }
         #endregion
     }

@@ -6,6 +6,7 @@ using TMPro;
 using Assets.Scripts_refactoring.Models.MonitorA;
 using HNS.MonitorA.ViewModels;
 using Assets.Scripts_refactoring.Views.MonitorA;
+using RefactoredAreaData = HNS.Common.Models.AreaData;
 
 namespace HNS.MonitorA.Views
 {
@@ -16,7 +17,7 @@ namespace HNS.MonitorA.Views
     {
         #region Inspector 설정
 
-        [SerializeField] private AreaData.AreaType areaType;
+        [SerializeField] private RefactoredAreaData.AreaType areaType;
         [SerializeField] private Sprite nuclearSprite;
         [SerializeField] private Sprite oceanSprite;
         [SerializeField] private Image imgAreaType;
@@ -68,18 +69,18 @@ namespace HNS.MonitorA.Views
         {
             defaultPos = transform.position;
 
-            // 아이콘 설정
+            // 아이콘 설정 - ✅ 별칭 사용!
             if (imgAreaType != null)
             {
-                imgAreaType.sprite = areaType == AreaData.AreaType.Ocean
+                imgAreaType.sprite = areaType == RefactoredAreaData.AreaType.Ocean
                     ? oceanSprite
                     : nuclearSprite;
             }
 
-            // 제목 설정
+            // 제목 설정 - ✅ 별칭 사용!
             if (lblTitle != null)
             {
-                lblTitle.text = areaType == AreaData.AreaType.Ocean
+                lblTitle.text = areaType == RefactoredAreaData.AreaType.Ocean
                     ? "집중우심해역 모니터링 현황"
                     : "주요 발전소 모니터링 현황";
             }
@@ -106,8 +107,8 @@ namespace HNS.MonitorA.Views
                 return;
             }
 
-            // 타입에 맞는 이벤트 구독
-            if (areaType == AreaData.AreaType.Ocean)
+            // 타입에 맞는 이벤트 구독 - ✅ 별칭 사용!
+            if (areaType == RefactoredAreaData.AreaType.Ocean)
             {
                 AreaListTypeViewModel.Instance.OnOceanAreasChanged += RenderAreas;
             }
@@ -123,7 +124,8 @@ namespace HNS.MonitorA.Views
         {
             if (AreaListTypeViewModel.Instance == null) return;
 
-            if (areaType == AreaData.AreaType.Ocean)
+            // ✅ 별칭 사용!
+            if (areaType == RefactoredAreaData.AreaType.Ocean)
             {
                 AreaListTypeViewModel.Instance.OnOceanAreasChanged -= RenderAreas;
             }
@@ -137,7 +139,7 @@ namespace HNS.MonitorA.Views
         {
             if (AreaListTypeViewModel.Instance != null)
             {
-                AreaListTypeViewModel.Instance.RefreshAreasByType(areaType);
+                AreaListTypeViewModel.Instance.RefreshAreasByType((Common.Models.AreaData.AreaType)areaType);
                 LogInfo($"데이터 요청: {areaType}");
             }
         }

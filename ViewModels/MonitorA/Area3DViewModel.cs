@@ -146,26 +146,40 @@ namespace HNS.MonitorA.ViewModels
         /// </summary>
         private int GetAreaIdByName(string areaName)
         {
-            var areaMapping = new Dictionary<string, int>
-            {
-                { "인천", 1 },
-                { "평택/대산", 2 },
-                { "고려 원자력", 3 },
-                { "동해 화력", 4 },
-                { "보령 화력", 5 },
-                { "부산", 6 },
-                { "사천 화력", 7 },
-                { "여수/광양", 8 },
-                { "영광 원자력", 9 },
-                { "울산", 10 }
-            };
+            // 띄어쓰기 제거 후 비교
+            string normalizedName = areaName.Replace(" ", "").Trim();
 
-            if (areaMapping.TryGetValue(areaName, out int areaId))
+            var areaMapping = new Dictionary<string, int>
+    {
+        // ⭐ TB_AREA의 실제 AREANM 값 (이미지 1, 7 참조)
+        { "인천", 1 },
+        { "평택/대산", 2 },
+        { "여수/광양", 3 },
+        { "부산", 4 },
+        { "울산", 5 },
+        { "보령화력", 6 },
+        { "영광원자력", 7 },
+        { "사천화력", 8 },
+        { "고리원자력", 9 },
+        { "동해화력", 10 },
+        
+        // ⭐ 띄어쓰기 없는 버전도 지원
+        { "평택대산", 2 },
+        { "여수광양", 3 },
+        { "보령", 6 },
+        { "영광", 7 },
+        { "사천", 8 },
+        { "고리", 9 },
+        { "동해", 10 }
+    };
+
+            if (areaMapping.TryGetValue(normalizedName, out int areaId))
             {
+                Debug.Log($"[Area3DViewModel] ✅ 지역 매칭 성공: '{areaName}' → AreaId={areaId}");
                 return areaId;
             }
 
-            Debug.LogError($"[Area3DViewModel] 알 수 없는 지역명: {areaName}");
+            Debug.LogError($"[Area3DViewModel] ❌ 알 수 없는 지역명: '{areaName}' (정규화: '{normalizedName}')");
             return 0;
         }
 
