@@ -1,18 +1,21 @@
-using HNS.MonitorA.Models;
+ï»¿using HNS.MonitorA.Models;
 using HNS.MonitorA.Repositories;
+using HNS.MonitorA.ViewModels;
 using HNS.Services;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
+using Views.MonitorA;
 
 namespace HNS.MonitorA.ViewModels
 {
     /// <summary>
-    /// Àü±¹ Áöµµ ViewModel
-    /// - AreaRepository·Î Áö¿ªº° ¾Ë¶÷ »óÅÂ Á¶È¸
-    /// - SchedulerService·Î ¾Ë¶÷ º¯°æ °¨Áö
+    /// ì „êµ­ ì§€ë„ ViewModel
+    /// - AreaRepositoryë¡œ ì§€ì—­ë³„ ì•ŒëŒ ìƒíƒœ ì¡°íšŒ
+    /// - SchedulerServiceë¡œ ì•ŒëŒ ë³€ê²½ ê°ì§€
     /// </summary>
     public class MapNationViewModel : MonoBehaviour
     {
@@ -20,7 +23,7 @@ namespace HNS.MonitorA.ViewModels
 
         // Repository & Service
         private AreaRepository _areaRepository;
-        private SchedulerService _schedulerService;  // FindFirstObjectByTypeÀ¸·Î Ã£±â
+        private SchedulerService _schedulerService;  // FindFirstObjectByTypeìœ¼ë¡œ ì°¾ê¸°
 
         // State
         public List<MapMarkerData> MarkerDataList { get; private set; }
@@ -45,13 +48,18 @@ namespace HNS.MonitorA.ViewModels
             _areaRepository = new AreaRepository();
             MarkerDataList = new List<MapMarkerData>();
 
-            Debug.Log("[MapNationViewModel] ÃÊ±âÈ­ ¿Ï·á");
+            Debug.Log("[MapNationViewModel] ì´ˆê¸°í™” ì™„ë£Œ");
         }
 
         private void Start()
         {
             SubscribeToScheduler();
             LoadMarkerData();
+
+#if UNITY_EDITOR
+            // â­ í…ŒìŠ¤íŠ¸ìš©: M í‚¤ë¥¼ ëˆ„ë¥´ë©´ ì¦‰ì‹œ ë§ˆì»¤ ì—…ë°ì´íŠ¸
+            StartCoroutine(TestKeyListener());
+#endif
         }
 
         private void OnDestroy()
@@ -66,23 +74,23 @@ namespace HNS.MonitorA.ViewModels
 
         #endregion
 
-        #region Scheduler ÀÌº¥Æ® ±¸µ¶
+        #region Scheduler ì´ë²¤íŠ¸ êµ¬ë…
 
         private void SubscribeToScheduler()
         {
-            // SchedulerService ÀÚµ¿ °Ë»ö
+            // SchedulerService ìë™ ê²€ìƒ‰
             _schedulerService = FindFirstObjectByType<SchedulerService>();
 
             if (_schedulerService == null)
             {
-                Debug.LogWarning("[MapNationViewModel] SchedulerService¸¦ Ã£À» ¼ö ¾ø½À´Ï´Ù. ÀÌº¥Æ® ±¸µ¶ °Ç³Ê¶Ü");
+                Debug.LogWarning("[MapNationViewModel] SchedulerServiceë¥¼ ì°¾ì„ ìˆ˜ ì—†ìŠµë‹ˆë‹¤. ì´ë²¤íŠ¸ êµ¬ë… ê±´ë„ˆëœ€");
             }
             else
             {
-                // ¾Ë¶÷ ¹ß»ı/ÇØÁ¦ ½Ã ¸¶Ä¿ °»½Å
-                _schedulerService.OnAlarmDetected += LoadMarkerData;
-                _schedulerService.OnAlarmCancelled += LoadMarkerData;
-                Debug.Log("[MapNationViewModel] SchedulerService ÀÌº¥Æ® ±¸µ¶ ¿Ï·á");
+                // â­â­â­ ì•ŒëŒ ë°œìƒ/í•´ì œ ì‹œ ë§ˆì»¤ ê°±ì‹ 
+                _schedulerService.OnAlarmDetected += OnAlarmChanged;
+                _schedulerService.OnAlarmCancelled += OnAlarmChanged;
+                Debug.Log("[MapNationViewModel] SchedulerService ì´ë²¤íŠ¸ êµ¬ë… ì™„ë£Œ");
             }
         }
 
@@ -90,9 +98,16 @@ namespace HNS.MonitorA.ViewModels
         {
             if (_schedulerService != null)
             {
-                _schedulerService.OnAlarmDetected -= LoadMarkerData;
-                _schedulerService.OnAlarmCancelled -= LoadMarkerData;
+                _schedulerService.OnAlarmDetected -= OnAlarmChanged;
+                _schedulerService.OnAlarmCancelled -= OnAlarmChanged;
             }
+        }
+
+        // â­â­â­ ì¶”ê°€: ì•ŒëŒ ë³€ê²½ í•¸ë“¤ëŸ¬
+        private void OnAlarmChanged()
+        {
+            Debug.Log("[MapNationViewModel] â­ ì•ŒëŒ ë³€ê²½ ê°ì§€ â†’ ë§ˆì»¤ ìƒ‰ìƒ ì—…ë°ì´íŠ¸");
+            LoadMarkerData();
         }
 
         #endregion
@@ -100,7 +115,7 @@ namespace HNS.MonitorA.ViewModels
         #region Public Methods
 
         /// <summary>
-        /// ¸¶Ä¿ µ¥ÀÌÅÍ ·Îµå (Áö¿ªº° ¾Ë¶÷ »óÅÂ)
+        /// ë§ˆì»¤ ë°ì´í„° ë¡œë“œ (ì§€ì—­ë³„ ì•ŒëŒ ìƒíƒœ)
         /// </summary>
         public void LoadMarkerData()
         {
@@ -113,13 +128,13 @@ namespace HNS.MonitorA.ViewModels
 
         private IEnumerator LoadMarkerDataCoroutine()
         {
-            Debug.Log("[MapNationViewModel] ¸¶Ä¿ µ¥ÀÌÅÍ ·Îµå ½ÃÀÛ...");
+            Debug.Log("[MapNationViewModel] ë§ˆì»¤ ë°ì´í„° ë¡œë“œ ì‹œì‘...");
 
             bool isComplete = false;
             List<AreaObservatoryStatusData> areaData = null;
             string errorMessage = null;
 
-            // Repository¸¦ ÅëÇØ Áö¿ªº° ¾Ë¶÷ »óÅÂ Á¶È¸
+            // Repositoryë¥¼ í†µí•´ ì§€ì—­ë³„ ì•ŒëŒ ìƒíƒœ ì¡°íšŒ
             yield return _areaRepository.GetAllAreaObservatoryStatus(
                 onSuccess: (data) =>
                 {
@@ -135,24 +150,24 @@ namespace HNS.MonitorA.ViewModels
 
             while (!isComplete) yield return null;
 
-            // ¿¡·¯ Ã³¸®
+            // ì—ëŸ¬ ì²˜ë¦¬
             if (!string.IsNullOrEmpty(errorMessage))
             {
-                Debug.LogError($"[MapNationViewModel] µ¥ÀÌÅÍ ·Îµå ½ÇÆĞ: {errorMessage}");
+                Debug.LogError($"[MapNationViewModel] ë°ì´í„° ë¡œë“œ ì‹¤íŒ¨: {errorMessage}");
                 OnError?.Invoke(errorMessage);
                 yield break;
             }
 
-            // µ¥ÀÌÅÍ ¾øÀ½
+            // ë°ì´í„° ì—†ìŒ
             if (areaData == null || areaData.Count == 0)
             {
-                Debug.LogWarning("[MapNationViewModel] Áö¿ª µ¥ÀÌÅÍ°¡ ¾ø½À´Ï´Ù.");
+                Debug.LogWarning("[MapNationViewModel] ì§€ì—­ ë°ì´í„°ê°€ ì—†ìŠµë‹ˆë‹¤.");
                 MarkerDataList = new List<MapMarkerData>();
                 OnMarkersUpdated?.Invoke(MarkerDataList);
                 yield break;
             }
 
-            // AreaObservatoryStatusData ¡æ MapMarkerData º¯È¯
+            // AreaObservatoryStatusData â†’ MapMarkerData ë³€í™˜
             MarkerDataList = areaData.Select(area => new MapMarkerData
             {
                 AreaId = area.AreaId,
@@ -161,41 +176,67 @@ namespace HNS.MonitorA.ViewModels
                 Status = CalculateAreaStatus(area)
             }).ToList();
 
-            Debug.Log($"[MapNationViewModel] ¸¶Ä¿ µ¥ÀÌÅÍ ·Îµå ¿Ï·á: {MarkerDataList.Count}°³");
+            Debug.Log($"[MapNationViewModel] ë§ˆì»¤ ë°ì´í„° ë¡œë“œ ì™„ë£Œ: {MarkerDataList.Count}ê°œ");
 
-            // °¢ ¸¶Ä¿ »óÅÂ ·Î±×
+            // ê° ë§ˆì»¤ ìƒíƒœ ë¡œê·¸
             foreach (var marker in MarkerDataList)
             {
                 string statusName = GetStatusName(marker.Status);
                 Debug.Log($"  - {marker.AreaName}: {statusName}");
             }
 
-            // View¿¡ ¾Ë¸²
+            // Viewì— ì•Œë¦¼
             OnMarkersUpdated?.Invoke(MarkerDataList);
         }
 
         /// <summary>
-        /// Áö¿ª »óÅÂ °è»ê (¿ì¼±¼øÀ§: Red > Yellow > Purple > Green)
+        /// ì§€ì—­ ìƒíƒœ ê³„ì‚° (ìš°ì„ ìˆœìœ„: Red > Yellow > Purple > Green)
         /// </summary>
         private int CalculateAreaStatus(AreaObservatoryStatusData area)
         {
-            if (area.RedCount > 0) return 2;     // Red - °æº¸
-            if (area.YellowCount > 0) return 1;  // Yellow - °æ°è
-            if (area.PurpleCount > 0) return 3;  // Purple - ¼³ºñÀÌ»ó
-            return 0;                             // Green - Á¤»ó
+            if (area.RedCount > 0) return 2;     // Red - ê²½ë³´
+            if (area.YellowCount > 0) return 1;  // Yellow - ê²½ê³„
+            if (area.PurpleCount > 0) return 3;  // Purple - ì„¤ë¹„ì´ìƒ
+            return 0;                             // Green - ì •ìƒ
         }
 
         private string GetStatusName(int status)
         {
             return status switch
             {
-                0 => "Á¤»ó(Green)",
-                1 => "°æ°è(Yellow)",
-                2 => "°æº¸(Red)",
-                3 => "¼³ºñÀÌ»ó(Purple)",
+                0 => "ì •ìƒ(Green)",
+                1 => "ê²½ê³„(Yellow)",
+                2 => "ê²½ë³´(Red)",
+                3 => "ì„¤ë¹„ì´ìƒ(Purple)",
                 _ => "Unknown"
             };
         }
+
+        #endregion
+
+        #region í…ŒìŠ¤íŠ¸ ê¸°ëŠ¥ (Editor Only)
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// í…ŒìŠ¤íŠ¸ìš©: M í‚¤ë¡œ ìˆ˜ë™ ë§ˆì»¤ ì—…ë°ì´íŠ¸
+        /// </summary>
+        private IEnumerator TestKeyListener()
+        {
+            Debug.Log("[MapNationViewModel] â­ í…ŒìŠ¤íŠ¸ í‚¤ ë¦¬ìŠ¤ë„ˆ ì‹œì‘ (M í‚¤)");
+
+            while (true)
+            {
+                if (Input.GetKeyDown(KeyCode.M))
+                {
+                    Debug.Log("========================================");
+                    Debug.Log("[MapNationViewModel] â­â­â­ ìˆ˜ë™ ë§ˆì»¤ ì—…ë°ì´íŠ¸ í…ŒìŠ¤íŠ¸ (M í‚¤ ì…ë ¥)");
+                    Debug.Log("========================================");
+                    LoadMarkerData();
+                }
+                yield return null;
+            }
+        }
+#endif
 
         #endregion
     }

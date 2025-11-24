@@ -113,7 +113,9 @@ namespace ViewModels.MonitorB
                 areaName = m.AREANM ?? "",
                 obsName = m.OBSNM ?? "",
                 sensorName = m.HNSNM ?? "",
-                alarmValue = m.CURRVAL
+                alarmValue = m.CURRVAL,
+                warningThreshold = m.ALAHIVAL,      
+                criticalThreshold = m.ALAHIHIVAL   
             }).ToList();
 
             ApplyFilters();

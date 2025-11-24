@@ -148,6 +148,7 @@ namespace HNS.MonitorA.Repositories
 
         /// <summary>
         /// 관측소 상태 계산
+        /// ⭐ 우선순위: 설비이상(Purple) > 경보(Red) > 경계(Yellow) > 정상(Green)
         /// </summary>
         private ToxinStatus CalculateObsStatus(int obsId, List<AlarmLogModel> alarms)
         {
@@ -156,15 +157,17 @@ namespace HNS.MonitorA.Repositories
             if (obsAlarms.Count == 0)
                 return ToxinStatus.Green;
 
-            int maxAlaCode = obsAlarms.Max(a => a.ALACODE);
+            // ⭐⭐⭐ 우선순위: 설비이상 > 경보 > 경계
+            if (obsAlarms.Any(a => a.ALACODE == 0))
+                return ToxinStatus.Purple; // 설비이상
 
-            return maxAlaCode switch
-            {
-                2 => ToxinStatus.Red,
-                1 => ToxinStatus.Yellow,
-                0 => ToxinStatus.Purple,
-                _ => ToxinStatus.Green
-            };
+            if (obsAlarms.Any(a => a.ALACODE == 2))
+                return ToxinStatus.Red;    // 경보
+
+            if (obsAlarms.Any(a => a.ALACODE == 1))
+                return ToxinStatus.Yellow; // 경계
+
+            return ToxinStatus.Green;
         }
 
         /// <summary>

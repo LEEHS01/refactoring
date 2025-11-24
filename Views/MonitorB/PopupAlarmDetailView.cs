@@ -66,6 +66,10 @@ namespace Views.MonitorB
             }
         }
 
+        /// <summary>
+        /// 알람 상세 팝업 열기
+        /// ⭐⭐⭐ 알람 시점의 임계값 추가
+        /// </summary>
         public void OpenPopup(
             int obsId,
             int alarmBoardId,
@@ -73,7 +77,9 @@ namespace Views.MonitorB
             System.DateTime alarmTime,
             float? alarmCurrVal,
             string obsName,
-            string areaName)
+            string areaName,
+            float? alarmWarningThreshold,   // ⭐ 추가
+            float? alarmCriticalThreshold)  // ⭐ 추가
         {
             currentObsId = obsId;
             currentAlarmTime = alarmTime;
@@ -89,8 +95,17 @@ namespace Views.MonitorB
             if (txtTime != null)
                 txtTime.text = alarmTime.ToString("HH:mm:ss");
 
+            // ⭐⭐⭐ 임계값 전달
             AlarmDetailViewModel.Instance?.LoadAlarmDetail(
-                obsId, alarmBoardId, alarmHnsId, alarmTime, alarmCurrVal, obsName, areaName);
+                obsId,
+                alarmBoardId,
+                alarmHnsId,
+                alarmTime,
+                alarmCurrVal,
+                obsName,
+                areaName,
+                alarmWarningThreshold,   // ⭐ 추가
+                alarmCriticalThreshold); // ⭐ 추가
         }
 
         private void OnDataLoaded(AlarmDetailData data)
@@ -144,7 +159,7 @@ namespace Views.MonitorB
                 }
             }
 
-            Debug.Log($" {container.name}: 기존 아이템 {items.Count}개, 센서 데이터 {sensors.Count}개");
+            Debug.Log($"✅ {container.name}: 기존 아이템 {items.Count}개, 센서 데이터 {sensors.Count}개");
 
             for (int i = 0; i < items.Count; i++)
             {
@@ -159,7 +174,7 @@ namespace Views.MonitorB
                 else
                 {
                     items[i].gameObject.SetActive(false);
-                    Debug.Log($" [{i}] 아이템 비활성화");
+                    Debug.Log($"⚠️ [{i}] 아이템 비활성화");
                 }
             }
 
@@ -174,7 +189,6 @@ namespace Views.MonitorB
             Debug.LogError($"알람 상세 정보 로드 실패: {error}");
         }
 
-        // 추가: 센서 아이템 클릭 핸들러
         private void OnSensorItemClicked(int boardId, int hnsId, int unused)
         {
             Debug.Log($"[PopupAlarmDetailView] 센서 클릭: Board={boardId}, HNS={hnsId}");
@@ -188,7 +202,6 @@ namespace Views.MonitorB
                 Debug.LogError("[PopupAlarmDetailView] PopUpToxinDetail2가 연결되지 않았습니다!");
             }
         }
-
 
         public void ClosePopup()
         {

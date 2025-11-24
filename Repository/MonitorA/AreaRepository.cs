@@ -128,23 +128,33 @@ namespace HNS.MonitorA.Repositories
 
         /// <summary>
         /// 알람 리스트에서 관측소 상태 판단
+        /// ⭐ 우선순위: 설비이상(0) > 경보(2) > 경계(1) > 정상
         /// </summary>
-        private int GetObsStatusFromAlarms(int obsId, List<Models.AlarmLogModel> alarms)  
+        private int GetObsStatusFromAlarms(int obsId, List<Models.AlarmLogModel> alarms)
         {
             var obsAlarms = alarms.Where(a => a.OBSIDX == obsId).ToList();
 
             if (obsAlarms.Count == 0)
                 return 0; // Green
 
-            // 우선순위: 경보(2) > 경계(1) > 설비이상(0)
+            // ⭐⭐⭐ 우선순위 변경: 설비이상이 최우선!
+            if (obsAlarms.Any(a => a.ALACODE == 0))
+            {
+                Debug.Log($"[AreaRepository] ObsId={obsId} → 설비이상(Purple) 반환");
+                return 3; // Purple - 설비이상
+            }
+
             if (obsAlarms.Any(a => a.ALACODE == 2))
-                return 2; // Red
+            {
+                Debug.Log($"[AreaRepository] ObsId={obsId} → 경보(Red) 반환");
+                return 2; // Red - 경보
+            }
 
             if (obsAlarms.Any(a => a.ALACODE == 1))
-                return 1; // Yellow
-
-            if (obsAlarms.Any(a => a.ALACODE == 0))
-                return 3; // Purple
+            {
+                Debug.Log($"[AreaRepository] ObsId={obsId} → 경계(Yellow) 반환");
+                return 1; // Yellow - 경계
+            }
 
             return 0; // Green
         }

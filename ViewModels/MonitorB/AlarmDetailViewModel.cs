@@ -23,6 +23,8 @@ namespace ViewModels.MonitorB
             _instance = this;
         }
 
+        // AlarmDetailViewModel.cs
+
         public async void LoadAlarmDetail(
             int obsId,
             int alarmBoardId,
@@ -30,18 +32,28 @@ namespace ViewModels.MonitorB
             DateTime alarmTime,
             float? alarmCurrVal,
             string obsName,
-            string areaName)
+            string areaName,
+            float? alarmWarningThreshold,   // ⭐ 추가
+            float? alarmCriticalThreshold)  // ⭐ 추가
         {
             try
             {
                 var data = await AlarmDetailRepository.Instance.GetAlarmDetailAsync(
-                    obsId, alarmBoardId, alarmHnsId, alarmTime, alarmCurrVal, obsName, areaName);
+                    obsId,
+                    alarmBoardId,
+                    alarmHnsId,
+                    alarmTime,
+                    alarmCurrVal,
+                    obsName,
+                    areaName,
+                    alarmWarningThreshold,   // ⭐ 전달
+                    alarmCriticalThreshold); // ⭐ 전달
 
                 OnDataLoaded?.Invoke(data);
             }
             catch (Exception ex)
             {
-                Debug.LogError($"AlarmDetailViewModel.LoadAlarmDetail 실패: {ex.Message}");
+                Debug.LogError($"[AlarmDetailViewModel] 로드 실패: {ex.Message}");
                 OnError?.Invoke(ex.Message);
             }
         }

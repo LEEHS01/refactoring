@@ -1,5 +1,6 @@
 ﻿using Assets.Scripts_refactoring.Models.MonitorA;
 using HNS.MonitorA.Repositories;
+using HNS.Services;  // ⭐ 추가
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -18,8 +19,9 @@ namespace HNS.MonitorA.ViewModels
         public static MapAreaViewModel Instance { get; private set; }
         #endregion
 
-        #region Repository
+        #region Repository & Service
         private MapAreaRepository _repository;
+        private SchedulerService _schedulerService;  // ⭐ 추가
         #endregion
 
         #region Current Data
@@ -64,13 +66,61 @@ namespace HNS.MonitorA.ViewModels
             Debug.Log("[MapAreaViewModel] 초기화 완료");
         }
 
+        // ⭐⭐⭐ 추가
+        private void Start()
+        {
+            SubscribeToScheduler();
+        }
+
         private void OnDestroy()
         {
+            UnsubscribeFromScheduler();  // ⭐ 추가
+
             if (Instance == this)
             {
                 Instance = null;
             }
         }
+        #endregion
+
+        #region Scheduler 이벤트 구독 (⭐⭐⭐ 새로 추가)
+
+        private void SubscribeToScheduler()
+        {
+            _schedulerService = FindFirstObjectByType<SchedulerService>();
+
+            if (_schedulerService == null)
+            {
+                Debug.LogWarning("[MapAreaViewModel] SchedulerService를 찾을 수 없습니다.");
+            }
+            else
+            {
+                // 알람 발생/해제 시 현재 지역의 관측소 마커 갱신
+                _schedulerService.OnAlarmDetected += OnAlarmChanged;
+                _schedulerService.OnAlarmCancelled += OnAlarmChanged;
+                Debug.Log("[MapAreaViewModel] SchedulerService 이벤트 구독 완료");
+            }
+        }
+
+        private void UnsubscribeFromScheduler()
+        {
+            if (_schedulerService != null)
+            {
+                _schedulerService.OnAlarmDetected -= OnAlarmChanged;
+                _schedulerService.OnAlarmCancelled -= OnAlarmChanged;
+            }
+        }
+
+        private void OnAlarmChanged()
+        {
+            // 현재 지역이 선택되어 있으면 관측소 마커 업데이트
+            if (_currentAreaId > 0)
+            {
+                Debug.Log($"[MapAreaViewModel] ⭐ 알람 변경 감지 → 관측소 마커 업데이트 (AreaId={_currentAreaId})");
+                RefreshObservatoryMarkers();
+            }
+        }
+
         #endregion
 
         #region Public Methods
@@ -113,6 +163,16 @@ namespace HNS.MonitorA.ViewModels
                 Debug.Log($"[MapAreaViewModel] 현재 지역 새로고침: AreaId={_currentAreaId}");
                 StartCoroutine(LoadAreaDataCoroutine(_currentAreaId));
             }
+        }
+
+        /// <summary>
+        /// ⭐⭐⭐ 관측소 마커만 새로고침 (알람 변경 시)
+        /// </summary>
+        private void RefreshObservatoryMarkers()
+        {
+            if (_currentAreaId <= 0) return;
+
+            StartCoroutine(RefreshObservatoryMarkersCoroutine());
         }
 
         /// <summary>
@@ -198,6 +258,33 @@ namespace HNS.MonitorA.ViewModels
                 yield return null;
 
             Debug.Log($"[MapAreaViewModel] 전체 데이터 로드 완료: AreaId={areaId}");
+        }
+
+        /// <summary>
+        /// ⭐⭐⭐ 관측소 마커만 새로고침하는 코루틴
+        /// </summary>
+        private IEnumerator RefreshObservatoryMarkersCoroutine()
+        {
+            bool completed = false;
+
+            yield return _repository.GetObservatoryMarkers(
+                _currentAreaId,
+                (observatories) =>
+                {
+                    _currentObservatories = observatories;
+                    OnObservatoriesLoaded?.Invoke(observatories);
+                    completed = true;
+                    Debug.Log($"[MapAreaViewModel] 관측소 마커 색상 업데이트 완료: {observatories.Count}개");
+                },
+                (error) =>
+                {
+                    Debug.LogError($"[MapAreaViewModel] 관측소 마커 업데이트 실패: {error}");
+                    completed = true;
+                }
+            );
+
+            while (!completed)
+                yield return null;
         }
         #endregion
 
