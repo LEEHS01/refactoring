@@ -1,15 +1,15 @@
-﻿using UnityEngine;
+﻿using TMPro;
+using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
+using Core;
 using HNS.MonitorA.ViewModels;
 
 namespace HNS.MonitorA.Views
 {
     /// <summary>
-    /// X-Ray 버튼 View
-    /// 3D 관측소 화면에서만 표시
+    /// X-Ray 버튼 UI View
     /// </summary>
-    public class TitleXrayButtonView : MonoBehaviour
+    public class TitleXrayButtonView : BaseView
     {
         public enum XrayType
         {
@@ -20,106 +20,181 @@ namespace HNS.MonitorA.Views
         [Header("Settings")]
         [SerializeField] private XrayType xrayType;
 
-        [Header("UI References")]
+        [Header("UI Components")]
         [SerializeField] private Button btnXray;
         [SerializeField] private TMP_Text lblText;
-        [SerializeField] private CanvasGroup canvasGroup; // ⭐ 추가
+        [SerializeField] private CanvasGroup canvasGroup;
 
-        private void Awake()
-        {
-            InitializeComponents();
-            SetupButton();
-            UpdateUI();
-        }
+        private bool _isSubscribed = false;
+        private bool _isButtonEventConnected = false; // ⭐ 추가
 
-        private void Start()
-        {
-            // ViewModel 이벤트 구독
-            SubscribeToViewModel();
+        #region BaseView 구현
 
-            // ⭐ 초기 상태: 숨김 (GameObject는 활성화 유지!)
-            HideButton();
-        }
-
-        private void OnDestroy()
-        {
-            UnsubscribeFromViewModel();
-
-            if (btnXray != null)
-                btnXray.onClick.RemoveListener(OnClick);
-        }
-
-        private void InitializeComponents()
+        protected override void InitializeUIComponents()
         {
             if (btnXray == null)
-                btnXray = GetComponentInChildren<Button>();
+            {
+                btnXray = GetComponent<Button>();
+                if (btnXray == null)
+                {
+                    btnXray = GetComponentInChildren<Button>();
+                }
+            }
 
             if (lblText == null)
+            {
                 lblText = GetComponentInChildren<TMP_Text>();
+            }
 
-            // ⭐ CanvasGroup 자동 추가
             if (canvasGroup == null)
             {
                 canvasGroup = GetComponent<CanvasGroup>();
                 if (canvasGroup == null)
                 {
                     canvasGroup = gameObject.AddComponent<CanvasGroup>();
-                    Debug.Log($"[TitleXrayButtonView] {xrayType} - CanvasGroup 자동 추가");
+                    LogInfo("CanvasGroup 자동 추가");
                 }
             }
+
+            bool isValid = ValidateComponents(
+                (btnXray, "btnXray"),
+                (lblText, "lblText"),
+                (canvasGroup, "canvasGroup")
+            );
+
+            if (!isValid)
+            {
+                LogError("필수 컴포넌트가 Inspector에서 연결되지 않았습니다!");
+                return;
+            }
+
+            lblText.text = xrayType == XrayType.Structure ? "건물 X-Ray" : "장비 X-Ray";
+            HideButton();
+
+            LogInfo($"{xrayType} 버튼 초기화 완료");
         }
 
-        private void SetupButton()
+        protected override void SetupViewEvents()
         {
+            // ⭐⭐⭐ 중복 연결 방지
+            if (_isButtonEventConnected) return;
+
             if (btnXray != null)
-                btnXray.onClick.AddListener(OnClick);
-        }
-
-        private void UpdateUI()
-        {
-            if (lblText != null)
-                lblText.text = xrayType == XrayType.Structure ? "건물 X-Ray" : "장비 X-Ray";
-        }
-
-        #region ViewModel 이벤트 구독
-
-        private void SubscribeToViewModel()
-        {
-            if (Area3DViewModel.Instance != null)
             {
-                Area3DViewModel.Instance.OnObservatoryLoaded.AddListener(OnObservatoryEntered);
-                Area3DViewModel.Instance.OnObservatoryClosed.AddListener(OnObservatoryClosed);
-                Debug.Log($"[TitleXrayButtonView] {xrayType} - Area3DViewModel 이벤트 구독");
-            }
-            else
-            {
-                Debug.LogWarning($"[TitleXrayButtonView] {xrayType} - Area3DViewModel.Instance가 null!");
+                // ⭐⭐⭐ 기존 리스너 모두 제거
+                btnXray.onClick.RemoveAllListeners();
+
+                // ⭐⭐⭐ 새로 연결
+                btnXray.onClick.AddListener(OnButtonClick);
+
+                _isButtonEventConnected = true;
+                LogInfo($"버튼 이벤트 연결 완료: {xrayType}");
             }
         }
 
-        private void UnsubscribeFromViewModel()
+        protected override void ConnectToViewModel()
         {
-            if (Area3DViewModel.Instance != null)
+            SubscribeToViewModel();
+        }
+
+        protected override void DisconnectViewEvents()
+        {
+            if (_isButtonEventConnected && btnXray != null)
             {
-                Area3DViewModel.Instance.OnObservatoryLoaded.RemoveListener(OnObservatoryEntered);
-                Area3DViewModel.Instance.OnObservatoryClosed.RemoveListener(OnObservatoryClosed);
+                btnXray.onClick.RemoveListener(OnButtonClick);
+                _isButtonEventConnected = false;
+                LogInfo($"버튼 이벤트 해제: {xrayType}");
             }
+        }
+
+        protected override void DisconnectFromViewModel()
+        {
+            UnsubscribeFromViewModel();
         }
 
         #endregion
 
-        #region 이벤트 핸들러
+        #region ViewModel 구독
 
-        private void OnObservatoryEntered(int obsId)
+        private void SubscribeToViewModel()
         {
+            if (_isSubscribed) return;
+
+            if (Area3DViewModel.Instance == null)
+            {
+                LogError("Area3DViewModel.Instance가 null입니다!");
+                return;
+            }
+
+            Area3DViewModel.Instance.OnObservatoryLoadedWithNames.AddListener(OnObservatoryLoaded);
+            Area3DViewModel.Instance.OnObservatoryClosed.AddListener(OnObservatoryClosed);
+
+            _isSubscribed = true;
+            LogInfo("✅ Area3DViewModel 구독 완료");
+        }
+
+        private void UnsubscribeFromViewModel()
+        {
+            if (!_isSubscribed) return;
+
+            if (Area3DViewModel.Instance != null)
+            {
+                Area3DViewModel.Instance.OnObservatoryLoadedWithNames.RemoveListener(OnObservatoryLoaded);
+                Area3DViewModel.Instance.OnObservatoryClosed.RemoveListener(OnObservatoryClosed);
+            }
+
+            _isSubscribed = false;
+        }
+
+        #endregion
+
+        #region ViewModel 이벤트 핸들러
+
+        private void OnObservatoryLoaded(int obsId, string areaName, string obsName)
+        {
+            LogInfo($"관측소 로드: ObsId={obsId}");
             ShowButton();
-            Debug.Log($"[TitleXrayButtonView] {xrayType} - 관측소 진입 (ObsId={obsId}), 버튼 표시");
         }
 
         private void OnObservatoryClosed()
         {
+            LogInfo("관측소 닫기");
             HideButton();
-            Debug.Log($"[TitleXrayButtonView] {xrayType} - 관측소 닫기, 버튼 숨김");
+        }
+
+        #endregion
+
+        #region UI 이벤트 핸들러
+
+        /// <summary>
+        /// 버튼 클릭 핸들러
+        /// </summary>
+        private void OnButtonClick()
+        {
+            LogInfo($"========================================");
+            LogInfo($"🖱️ {xrayType} X-Ray 버튼 클릭!");
+
+            if (XrayViewModel.Instance == null)
+            {
+                LogError("XrayViewModel.Instance가 null입니다!");
+                return;
+            }
+
+            // ⭐⭐⭐ 현재 상태 출력
+            LogInfo($"클릭 전 상태 - Structure: {XrayViewModel.Instance.IsStructureXrayActive}, Equipment: {XrayViewModel.Instance.IsEquipmentXrayActive}");
+
+            if (xrayType == XrayType.Structure)
+            {
+                XrayViewModel.Instance.ToggleStructureXray();
+            }
+            else if (xrayType == XrayType.Equipment)
+            {
+                XrayViewModel.Instance.ToggleEquipmentXray();
+            }
+
+            // ⭐⭐⭐ 변경 후 상태 출력
+            LogInfo($"클릭 후 상태 - Structure: {XrayViewModel.Instance.IsStructureXrayActive}, Equipment: {XrayViewModel.Instance.IsEquipmentXrayActive}");
+            LogInfo($"========================================");
         }
 
         #endregion
@@ -148,18 +223,35 @@ namespace HNS.MonitorA.Views
 
         #endregion
 
-        private void OnClick()
-        {
-            Debug.Log($"[TitleXrayButtonView] X-Ray 버튼 클릭: {xrayType}");
-            // TODO: X-Ray 토글 로직 구현
-        }
+        #region Inspector 검증
 
-#if UNITY_EDITOR
         private void OnValidate()
         {
-            InitializeComponents();
-            UpdateUI();
+            if (btnXray == null)
+            {
+                btnXray = GetComponent<Button>();
+                if (btnXray == null)
+                {
+                    btnXray = GetComponentInChildren<Button>();
+                }
+            }
+
+            if (lblText == null)
+            {
+                lblText = GetComponentInChildren<TMP_Text>();
+            }
+
+            if (canvasGroup == null)
+            {
+                canvasGroup = GetComponent<CanvasGroup>();
+            }
+
+            if (lblText != null)
+            {
+                lblText.text = xrayType == XrayType.Structure ? "건물 X-Ray" : "장비 X-Ray";
+            }
         }
-#endif
+
+        #endregion
     }
 }
