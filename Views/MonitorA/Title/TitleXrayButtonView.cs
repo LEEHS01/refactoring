@@ -6,9 +6,6 @@ using HNS.MonitorA.ViewModels;
 
 namespace HNS.MonitorA.Views
 {
-    /// <summary>
-    /// X-Ray 버튼 UI View
-    /// </summary>
     public class TitleXrayButtonView : BaseView
     {
         public enum XrayType
@@ -26,7 +23,7 @@ namespace HNS.MonitorA.Views
         [SerializeField] private CanvasGroup canvasGroup;
 
         private bool _isSubscribed = false;
-        private bool _isButtonEventConnected = false; // ⭐ 추가
+        private bool _isButtonEventConnected = false;
 
         #region BaseView 구현
 
@@ -76,15 +73,11 @@ namespace HNS.MonitorA.Views
 
         protected override void SetupViewEvents()
         {
-            // ⭐⭐⭐ 중복 연결 방지
             if (_isButtonEventConnected) return;
 
             if (btnXray != null)
             {
-                // ⭐⭐⭐ 기존 리스너 모두 제거
                 btnXray.onClick.RemoveAllListeners();
-
-                // ⭐⭐⭐ 새로 연결
                 btnXray.onClick.AddListener(OnButtonClick);
 
                 _isButtonEventConnected = true;
@@ -129,8 +122,21 @@ namespace HNS.MonitorA.Views
             Area3DViewModel.Instance.OnObservatoryLoadedWithNames.AddListener(OnObservatoryLoaded);
             Area3DViewModel.Instance.OnObservatoryClosed.AddListener(OnObservatoryClosed);
 
+            // ⭐⭐⭐ XrayViewModel 이벤트 구독 추가!
+            if (XrayViewModel.Instance != null)
+            {
+                if (xrayType == XrayType.Structure)
+                {
+                    XrayViewModel.Instance.OnStructureXrayChanged.AddListener(OnXrayStateChanged);
+                }
+                else
+                {
+                    XrayViewModel.Instance.OnEquipmentXrayChanged.AddListener(OnXrayStateChanged);
+                }
+            }
+
             _isSubscribed = true;
-            LogInfo("✅ Area3DViewModel 구독 완료");
+            LogInfo("✅ ViewModel 구독 완료");
         }
 
         private void UnsubscribeFromViewModel()
@@ -141,6 +147,19 @@ namespace HNS.MonitorA.Views
             {
                 Area3DViewModel.Instance.OnObservatoryLoadedWithNames.RemoveListener(OnObservatoryLoaded);
                 Area3DViewModel.Instance.OnObservatoryClosed.RemoveListener(OnObservatoryClosed);
+            }
+
+            // ⭐⭐⭐ XrayViewModel 이벤트 구독 해제
+            if (XrayViewModel.Instance != null)
+            {
+                if (xrayType == XrayType.Structure)
+                {
+                    XrayViewModel.Instance.OnStructureXrayChanged.RemoveListener(OnXrayStateChanged);
+                }
+                else
+                {
+                    XrayViewModel.Instance.OnEquipmentXrayChanged.RemoveListener(OnXrayStateChanged);
+                }
             }
 
             _isSubscribed = false;
@@ -154,21 +173,31 @@ namespace HNS.MonitorA.Views
         {
             LogInfo($"관측소 로드: ObsId={obsId}");
             ShowButton();
+
+            // ⭐⭐⭐ 버튼 UI 상태 초기화!
+            UpdateButtonVisual(false);
         }
 
         private void OnObservatoryClosed()
         {
             LogInfo("관측소 닫기");
             HideButton();
+
+            // ⭐⭐⭐ 버튼 UI 상태 초기화!
+            UpdateButtonVisual(false);
+        }
+
+        // ⭐⭐⭐ X-Ray 상태 변경 시 버튼 UI 업데이트
+        private void OnXrayStateChanged(bool isActive)
+        {
+            UpdateButtonVisual(isActive);
+            LogInfo($"{xrayType} X-Ray 상태 변경: {isActive}");
         }
 
         #endregion
 
         #region UI 이벤트 핸들러
 
-        /// <summary>
-        /// 버튼 클릭 핸들러
-        /// </summary>
         private void OnButtonClick()
         {
             LogInfo($"========================================");
@@ -180,7 +209,6 @@ namespace HNS.MonitorA.Views
                 return;
             }
 
-            // ⭐⭐⭐ 현재 상태 출력
             LogInfo($"클릭 전 상태 - Structure: {XrayViewModel.Instance.IsStructureXrayActive}, Equipment: {XrayViewModel.Instance.IsEquipmentXrayActive}");
 
             if (xrayType == XrayType.Structure)
@@ -192,7 +220,6 @@ namespace HNS.MonitorA.Views
                 XrayViewModel.Instance.ToggleEquipmentXray();
             }
 
-            // ⭐⭐⭐ 변경 후 상태 출력
             LogInfo($"클릭 후 상태 - Structure: {XrayViewModel.Instance.IsStructureXrayActive}, Equipment: {XrayViewModel.Instance.IsEquipmentXrayActive}");
             LogInfo($"========================================");
         }
@@ -219,6 +246,27 @@ namespace HNS.MonitorA.Views
                 canvasGroup.interactable = false;
                 canvasGroup.blocksRaycasts = false;
             }
+        }
+
+        // ⭐⭐⭐ 버튼 활성화 상태 시각적 업데이트
+        private void UpdateButtonVisual(bool isActive)
+        {
+            // 버튼 색상 변경 등 시각적 피드백
+            if (btnXray != null)
+            {
+                var colors = btnXray.colors;
+                colors.normalColor = isActive ? Color.green : Color.white;
+                btnXray.colors = colors;
+            }
+
+            // 텍스트 업데이트 (선택사항)
+            if (lblText != null)
+            {
+                string baseName = xrayType == XrayType.Structure ? "건물 X-Ray" : "장비 X-Ray";
+                lblText.text = isActive ? $"{baseName} (ON)" : baseName;
+            }
+
+            LogInfo($"{xrayType} 버튼 UI 업데이트: {isActive}");
         }
 
         #endregion

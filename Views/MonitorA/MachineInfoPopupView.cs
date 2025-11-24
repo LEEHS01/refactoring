@@ -1,63 +1,45 @@
-﻿using TMPro;
+﻿using Core;
+using HNS.MonitorA.ViewModels;
+using HNS.MonitorA.Views;
 using UnityEngine;
 using UnityEngine.UI;
-using Core;
-using HNS.MonitorA.ViewModels;
 
 namespace HNS.MonitorA.Views
 {
-    /// <summary>
-    /// 기계 정보 팝업 View
-    /// </summary>
     public class MachineInfoPopupView : BaseView
     {
-        [Header("UI Components")]
-        [SerializeField] private Button btnClose;
-        [SerializeField] private TMP_Text txtStatus;
-        [SerializeField] private CanvasGroup canvasGroup; // ⭐⭐⭐ 추가
+        [Header("UI References")]
+        [SerializeField] private GameObject popupPanel;  // ⭐ 자식 Panel을 연결!
+        [SerializeField] private Button closeButton;
 
-        private Vector3 defaultPos;
         private bool _isSubscribed = false;
 
         #region BaseView 구현
-
         protected override void InitializeUIComponents()
         {
-            bool isValid = ValidateComponents(
-                (btnClose, "btnClose"),
-                (txtStatus, "txtStatus")
-            );
-
-            if (!isValid)
+            // ⭐ popupPanel이 null이면 첫 번째 자식 찾기
+            if (popupPanel == null)
             {
-                LogError("필수 컴포넌트가 Inspector에서 연결되지 않았습니다!");
-                return;
-            }
-
-            // ⭐⭐⭐ CanvasGroup 자동 추가
-            if (canvasGroup == null)
-            {
-                canvasGroup = GetComponent<CanvasGroup>();
-                if (canvasGroup == null)
+                if (transform.childCount > 0)
                 {
-                    canvasGroup = gameObject.AddComponent<CanvasGroup>();
-                    LogInfo("CanvasGroup 자동 추가");
+                    popupPanel = transform.GetChild(0).gameObject;
+                    LogInfo($"popupPanel 자동 할당: {popupPanel.name}");
                 }
             }
 
-            defaultPos = transform.position;
+            if (popupPanel != null)
+            {
+                popupPanel.SetActive(false);
+            }
 
-            // ⭐⭐⭐ GameObject는 활성화 유지, CanvasGroup으로 숨김
-            HidePopup();
-
-            LogInfo("기계 정보 팝업 초기화 완료");
+            LogInfo("장비 정보 팝업 초기화 완료");
         }
 
         protected override void SetupViewEvents()
         {
-            if (btnClose != null)
+            if (closeButton != null)
             {
-                btnClose.onClick.AddListener(OnClickClose);
+                closeButton.onClick.AddListener(OnCloseButtonClicked);
             }
         }
 
@@ -68,9 +50,9 @@ namespace HNS.MonitorA.Views
 
         protected override void DisconnectViewEvents()
         {
-            if (btnClose != null)
+            if (closeButton != null)
             {
-                btnClose.onClick.RemoveListener(OnClickClose);
+                closeButton.onClick.RemoveListener(OnCloseButtonClicked);
             }
         }
 
@@ -78,18 +60,12 @@ namespace HNS.MonitorA.Views
         {
             UnsubscribeFromViewModel();
         }
-
         #endregion
 
         #region ViewModel 구독
-
         private void SubscribeToViewModel()
         {
-            if (_isSubscribed)
-            {
-                LogInfo("이미 구독되어 있음");
-                return;
-            }
+            if (_isSubscribed) return;
 
             if (MachineInfoViewModel.Instance == null)
             {
@@ -101,7 +77,7 @@ namespace HNS.MonitorA.Views
             MachineInfoViewModel.Instance.OnMachineInfoClosed.AddListener(OnMachineInfoClosed);
 
             _isSubscribed = true;
-            LogInfo("MachineInfoViewModel 구독 완료");
+            LogInfo("✅ MachineInfoViewModel 구독 완료");
         }
 
         private void UnsubscribeFromViewModel()
@@ -116,89 +92,88 @@ namespace HNS.MonitorA.Views
 
             _isSubscribed = false;
         }
-
         #endregion
 
-        #region ViewModel 이벤트 핸들러
-
+        #region 이벤트 핸들러
         private void OnMachineInfoOpened(string stcd)
         {
-            LogInfo($"========================================");
-            LogInfo($"이벤트 수신: OnMachineInfoOpened, STCD={stcd}");
+            Debug.Log($"[MachineInfoPopupView] OnMachineInfoOpened 호출됨: STCD={stcd}");
 
-            transform.position = defaultPos;
-            transform.SetAsLastSibling();
+            if (XrayViewModel.Instance != null)
+            {
+                bool buildingOn = XrayViewModel.Instance.IsStructureXrayActive;
+                bool equipmentOn = XrayViewModel.Instance.IsEquipmentXrayActive;
 
-            ShowPopup();
-            UpdateStatusText(stcd);
+                Debug.Log($"[MachineInfoPopupView] X-Ray 상태: 건물={buildingOn}, 장비={equipmentOn}");
 
-            LogInfo($"팝업 표시 완료");
-            LogInfo($"========================================");
+                if (buildingOn && !equipmentOn)
+                {
+                    ShowPopup(stcd);
+                    return;
+                }
+            }
+
+            LogInfo("❌ 건물 X-Ray만 활성화된 상태가 아니므로 팝업 표시 안 함");
         }
 
         private void OnMachineInfoClosed()
         {
-            LogInfo("이벤트 수신: OnMachineInfoClosed");
             HidePopup();
-            LogInfo("팝업 숨김 완료");
         }
 
+        private void OnCloseButtonClicked()
+        {
+            MachineInfoViewModel.Instance?.CloseMachineInfo();
+        }
+
+        public void OnXRayStateChanged()
+        {
+            if (XrayViewModel.Instance != null)
+            {
+                bool buildingOn = XrayViewModel.Instance.IsStructureXrayActive;
+                bool equipmentOn = XrayViewModel.Instance.IsEquipmentXrayActive;
+
+                if (buildingOn && equipmentOn)
+                {
+                    HidePopup();
+                    LogInfo("❌ 둘 다 활성화 → 장비 팝업 닫기");
+                }
+                else if (!buildingOn)
+                {
+                    HidePopup();
+                    LogInfo("❌ 건물 X-Ray 비활성화 → 장비 팝업 닫기");
+                }
+            }
+        }
         #endregion
 
-        #region UI 이벤트 핸들러
-
-        private void OnClickClose()
+        #region Public Methods
+        public void ShowPopup(string stcd)
         {
-            LogInfo("닫기 버튼 클릭");
+            Debug.Log($"[MachineInfoPopupView] ShowPopup 호출: STCD={stcd}");
 
-            if (MachineInfoViewModel.Instance != null)
+            if (popupPanel != null)
             {
-                MachineInfoViewModel.Instance.CloseMachineInfo();
+                popupPanel.SetActive(true);
+                string description = MachineInfoViewModel.Instance?.GetStcdDescription(stcd) ?? "알 수 없음";
+                LogInfo($"장비 정보 팝업 표시: STCD={stcd} ({description})");
+            }
+            else
+            {
+                LogError("popupPanel이 null입니다!");
             }
         }
 
-        #endregion
-
-        #region Private Methods - CanvasGroup 제어
-
-        /// <summary>
-        /// ⭐⭐⭐ 팝업 표시 (CanvasGroup 사용)
-        /// </summary>
-        private void ShowPopup()
+        public void HidePopup()
         {
-            if (canvasGroup != null)
+            Debug.Log($"[MachineInfoPopupView] HidePopup 호출");
+
+            if (popupPanel != null)
             {
-                canvasGroup.alpha = 1f;
-                canvasGroup.interactable = true;
-                canvasGroup.blocksRaycasts = true;
-                LogInfo("CanvasGroup으로 팝업 표시");
+                popupPanel.SetActive(false);
+                LogInfo("장비 정보 팝업 닫기");
             }
         }
-
-        /// <summary>
-        /// 팝업 숨김 (CanvasGroup 사용)
-        /// </summary>
-        private void HidePopup()
-        {
-            if (canvasGroup != null)
-            {
-                canvasGroup.alpha = 0f;
-                canvasGroup.interactable = false;
-                canvasGroup.blocksRaycasts = false;
-                LogInfo("CanvasGroup으로 팝업 숨김");
-            }
-        }
-
-        private void UpdateStatusText(string stcd)
-        {
-            if (txtStatus != null && MachineInfoViewModel.Instance != null)
-            {
-                string statusText = MachineInfoViewModel.Instance.GetStcdDescription(stcd);
-                txtStatus.text = statusText;
-                LogInfo($"상태 텍스트 업데이트: {statusText}");
-            }
-        }
-
         #endregion
     }
 }

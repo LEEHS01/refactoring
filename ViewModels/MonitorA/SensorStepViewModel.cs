@@ -1,17 +1,18 @@
 ﻿using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
+using HNS.MonitorA.ViewModels;
+using Repositories.MonitorA;
 
 namespace HNS.MonitorA.ViewModels
 {
     /// <summary>
     /// 센서 단계별 정보 관리 ViewModel (Singleton)
-    /// X-Ray 장비 활성화 시 센서 단계 정보 팝업 표시
     /// </summary>
     public class SensorStepViewModel : MonoBehaviour
     {
         #region Singleton
-
         public static SensorStepViewModel Instance { get; private set; }
 
         private void Awake()
@@ -27,28 +28,21 @@ namespace HNS.MonitorA.ViewModels
                 Destroy(gameObject);
             }
         }
-
         #endregion
 
         #region Events
-
-        /// <summary>
-        /// 센서 단계 변경 이벤트 (step: 1, 2, 3...)
-        /// </summary>
         [Serializable]
         public class StepChangedEvent : UnityEvent<int> { }
         [HideInInspector] public StepChangedEvent OnStepChanged = new StepChangedEvent();
-
         #endregion
 
         #region Private Fields
-
-        private int _currentStep = -1;  // -1 = 팝업 숨김
-
+        private int _currentStep = -1;
+        private int _currentObsId = -1;  // 현재 관측소 ID 저장
+        private ObsMonitoringRepository _repository = new ObsMonitoringRepository();
         #endregion
 
         #region Properties
-
         public int CurrentStep
         {
             get => _currentStep;
@@ -63,11 +57,9 @@ namespace HNS.MonitorA.ViewModels
                 }
             }
         }
-
         #endregion
 
         #region Unity Lifecycle
-
         private void Start()
         {
             // Area3DViewModel 이벤트 구독
@@ -78,7 +70,7 @@ namespace HNS.MonitorA.ViewModels
                 Debug.Log("[SensorStepViewModel] ✅ Area3DViewModel 구독 완료");
             }
 
-            // XrayViewModel 이벤트 구독 (센서 표시 여부에 따라 팝업 표시)
+            // XrayViewModel 이벤트 구독
             if (XrayViewModel.Instance != null)
             {
                 XrayViewModel.Instance.OnSensorsVisibilityChanged.AddListener(OnSensorsVisibilityChanged);
@@ -99,33 +91,36 @@ namespace HNS.MonitorA.ViewModels
                 XrayViewModel.Instance.OnSensorsVisibilityChanged.RemoveListener(OnSensorsVisibilityChanged);
             }
         }
-
         #endregion
 
         #region Event Handlers
-
         private void OnObservatoryLoaded(int obsId, string areaName, string obsName)
         {
-            Debug.Log($"[SensorStepViewModel] 관측소 로드: 단계 초기화");
-            CurrentStep = -1;  // 팝업 숨김
+            Debug.Log($"[SensorStepViewModel] 관측소 로드: ObsId={obsId}");
+            _currentObsId = obsId;
+            CurrentStep = -1;  // 초기화
+
+            // ✅ DB에서 실제 단계 가져오기
+            LoadSensorStepFromDB();
         }
 
         private void OnObservatoryClosed()
         {
             Debug.Log("[SensorStepViewModel] 관측소 닫기: 단계 초기화");
-            CurrentStep = -1;  // 팝업 숨김
+            _currentObsId = -1;
+            CurrentStep = -1;
         }
 
         /// <summary>
-        /// 센서 표시 여부 변경 시 (두 X-Ray 모두 활성화되면 단계 1 표시)
+        /// 센서 표시 여부 변경 시
         /// </summary>
         private void OnSensorsVisibilityChanged(bool isVisible)
         {
-            if (isVisible)
+            if (isVisible && _currentObsId > 0)
             {
-                // 센서가 보이면 단계 1 팝업 표시
-                CurrentStep = 1;
-                Debug.Log("[SensorStepViewModel] 센서 표시 → 단계 1 팝업 표시");
+                // ✅ DB에서 실제 단계 가져오기
+                Debug.Log("[SensorStepViewModel] 센서 표시 → DB에서 단계 로드");
+                LoadSensorStepFromDB();
             }
             else
             {
@@ -134,17 +129,55 @@ namespace HNS.MonitorA.ViewModels
                 Debug.Log("[SensorStepViewModel] 센서 숨김 → 팝업 숨김");
             }
         }
+        #endregion
 
+        #region Private Methods
+        /// <summary>
+        /// DB에서 센서 단계 로드 (GET_SENSOR_STEP)
+        /// </summary>
+        private void LoadSensorStepFromDB()
+        {
+            if (_currentObsId <= 0)
+            {
+                Debug.LogWarning("[SensorStepViewModel] 관측소 ID가 유효하지 않음");
+                return;
+            }
+
+            StartCoroutine(_repository.GetSensorStep(
+                _currentObsId,
+                (step) =>
+                {
+                    CurrentStep = step;
+                    Debug.Log($"[SensorStepViewModel] ✅ DB에서 단계 로드 완료: Step {step}");
+                },
+                (error) =>
+                {
+                    Debug.LogError($"[SensorStepViewModel] ❌ 단계 로드 실패: {error}");
+                    // 실패 시 기본값 1 설정
+                    CurrentStep = 1;
+                }
+            ));
+        }
         #endregion
 
         #region Public Methods
-
         /// <summary>
         /// 센서 단계 설정 (외부에서 호출 가능)
         /// </summary>
         public void SetStep(int step)
         {
             CurrentStep = step;
+        }
+
+        /// <summary>
+        /// 센서 단계 강제 새로고침 (DB에서 다시 로드)
+        /// </summary>
+        public void RefreshStep()
+        {
+            if (_currentObsId > 0)
+            {
+                LoadSensorStepFromDB();
+            }
         }
 
         /// <summary>
@@ -168,7 +201,6 @@ namespace HNS.MonitorA.ViewModels
                 CurrentStep = _currentStep - 1;
             }
         }
-
         #endregion
     }
 }
